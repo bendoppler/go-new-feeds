@@ -8,8 +8,8 @@ import (
 
 type FriendsRepositoryInterface interface {
 	GetFriends(userID int) ([]entity.User, error)
-	FollowUser(userID int) error
-	UnfollowUser(userID int) error
+	FollowUser(currentUserID int, followedUserID int) error
+	UnfollowUser(currentUserID int, unfollowedUserID int) error
 }
 
 type FriendsRepository struct {
@@ -45,14 +45,18 @@ func (r *FriendsRepository) GetFriends(userID int) ([]entity.User, error) {
 }
 
 // FollowUser follows a user.
-func (r *FriendsRepository) FollowUser(userID int) error {
+func (r *FriendsRepository) FollowUser(currentUserID int, followedUserID int) error {
 	// This example assumes you want to follow user ID 2, modify accordingly
-	_, err := r.db.Exec("INSERT INTO friends (user_id, friend_id) VALUES (?, ?)", userID, 2)
+	_, err := r.db.Exec(
+		"INSERT INTO user_user (fk_user_id, fk_follower_id) VALUES (?, ?)", currentUserID, followedUserID,
+	)
 	return err
 }
 
 // UnfollowUser unfollows a user.
-func (r *FriendsRepository) UnfollowUser(userID int) error {
-	_, err := r.db.Exec("DELETE FROM friends WHERE user_id = ? AND friend_id = ?", userID, 2)
+func (r *FriendsRepository) UnfollowUser(currentUserID int, unfollowedUserID int) error {
+	_, err := r.db.Exec(
+		"DELETE FROM user_user WHERE fk_user_id = ? AND fk_follower_id = ?", currentUserID, unfollowedUserID,
+	)
 	return err
 }

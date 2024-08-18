@@ -44,18 +44,28 @@ func (h *FriendsHandler) GetFriends(w http.ResponseWriter, r *http.Request) {
 
 // FollowUser handles POST requests for following a user.
 func (h *FriendsHandler) FollowUser(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.Atoi(mux.Vars(r)["userId"])
+	// Get the current user ID from the request context (assumes middleware has set it)
+	currentUserID, ok := r.Context().Value("userID").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse the target user ID from the URL parameters
+	targetUserID, err := strconv.Atoi(mux.Vars(r)["userId"])
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	msg, err := h.friendsService.FollowUser(userID)
+	// Call the service method to follow the target user
+	msg, err := h.friendsService.FollowUser(currentUserID, targetUserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Return success response
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]string{"msg": msg})
 	if err != nil {
@@ -66,18 +76,28 @@ func (h *FriendsHandler) FollowUser(w http.ResponseWriter, r *http.Request) {
 
 // UnfollowUser handles DELETE requests for unfollowing a user.
 func (h *FriendsHandler) UnfollowUser(w http.ResponseWriter, r *http.Request) {
-	userID, err := strconv.Atoi(mux.Vars(r)["userId"])
+	// Get the current user ID from the request context (assumes middleware has set it)
+	currentUserID, ok := r.Context().Value("userID").(int)
+	if !ok {
+		http.Error(w, "Unauthorized", http.StatusUnauthorized)
+		return
+	}
+
+	// Parse the target user ID from the URL parameters
+	targetUserID, err := strconv.Atoi(mux.Vars(r)["userId"])
 	if err != nil {
 		http.Error(w, "Invalid user ID", http.StatusBadRequest)
 		return
 	}
 
-	msg, err := h.friendsService.UnfollowUser(userID)
+	// Call the service method to unfollow the target user
+	msg, err := h.friendsService.UnfollowUser(currentUserID, targetUserID)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
 
+	// Return success response
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(map[string]string{"msg": msg})
 	if err != nil {

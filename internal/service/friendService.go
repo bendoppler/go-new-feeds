@@ -7,8 +7,8 @@ import (
 
 type FriendsServiceInterface interface {
 	GetFriends(userID int) ([]entity.User, error)
-	FollowUser(userID int) (string, error)
-	UnfollowUser(userID int) (string, error)
+	FollowUser(currentUserID int, followedUserID int) (string, error)
+	UnfollowUser(currentUserID int, unfollowedUserID int) (string, error)
 	GetUserPosts(userID int) ([]entity.Post, error)
 }
 
@@ -23,8 +23,8 @@ func (s *FriendsService) GetFriends(userID int) ([]entity.User, error) {
 }
 
 // FollowUser follows a user and returns a message.
-func (s *FriendsService) FollowUser(userID int) (string, error) {
-	err := s.friendsRepo.FollowUser(userID)
+func (s *FriendsService) FollowUser(currentUserID int, followedUserID int) (string, error) {
+	err := s.friendsRepo.FollowUser(currentUserID, followedUserID)
 	if err != nil {
 		return "Failed to follow user", err
 	}
@@ -32,8 +32,8 @@ func (s *FriendsService) FollowUser(userID int) (string, error) {
 }
 
 // UnfollowUser unfollows a user and returns a message.
-func (s *FriendsService) UnfollowUser(userID int) (string, error) {
-	err := s.friendsRepo.UnfollowUser(userID)
+func (s *FriendsService) UnfollowUser(currentUserID int, unfollowedUserID int) (string, error) {
+	err := s.friendsRepo.UnfollowUser(currentUserID, unfollowedUserID)
 	if err != nil {
 		return "Failed to unfollow user", err
 	}
