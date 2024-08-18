@@ -1,31 +1,68 @@
 package service
 
 import (
-	"news-feed/internal/api/model"
+	"io"
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
-	"time"
+	"news-feed/internal/storage"
 )
 
 type PostServiceInterface interface {
-	CreatePost(post *model.Post) (string, bool, int)
+	CreatePost(text string, imageFileName string, imageFile io.Reader) (string, bool, string)
+	GetPost(postID int) (entity.Post, error)
+	EditPost(post entity.Post) error
+	DeletePost(postID int) error
+	CommentOnPost(postID int, comment string) error
+	LikePost(postID int) error
 }
 
 type PostService struct {
 	postRepo repository.PostRepository
+	storage  storage.MinioStorageInterface
 }
 
-func (s *PostService) CreatePost(post *model.Post) (string, bool, int) {
-	postEntity := &entity.Post{
-		UserID:           post.UserID,
-		ContentText:      post.ContentText,
-		ContentImagePath: post.ContentImagePath,
-		CreatedAt:        time.Now(),
+func (s *PostService) CreatePost(text string, imageFileName string, imageFile io.Reader) (string, bool, string) {
+	var imageURL string
+	if imageFile != nil {
+		var err error
+		imageURL, err = s.storage.UploadFile(imageFileName, imageFile)
+		if err != nil {
+			return "Failed to upload image", false, "UPLOAD_ERROR"
+		}
 	}
 
-	err := s.postRepo.CreatePost(postEntity)
-	if err != nil {
-		return "Post creation failed", false, 1
+	post := entity.Post{
+		ContentText:      text,
+		ContentImagePath: imageURL,
 	}
-	return "Post created successfully", true, 0
+
+	err := s.postRepo.CreatePost(post)
+	if err != nil {
+		return "Failed to create post", false, "DB_ERROR"
+	}
+
+	return "Post created successfully", true, ""
+}
+
+func (s *PostService) GetPost(postID int) (entity.Post, error) {
+	return s.postRepo.GetPostByID(postID)
+}
+
+func (s *PostService) EditPost(post entity.Post) error {
+	return s.postRepo.UpdatePost(post)
+}
+
+func (s *PostService) DeletePost(postID int) error {
+	return s.postRepo.DeletePost(postID)
+}
+
+func (s *PostService) CommentOnPost(postID int, comment string) error {
+	commentEntity := entity.Comment{Content: comment}
+	return s.postRepo.CreateComment(postID, commentEntity)
+}
+
+func (s *PostService) LikePost(postID int) error {
+	// Assuming we have some logic to get the current user's ID
+	userID := 1 // Placeholder for user ID
+	return s.postRepo.AddLike(postID, userID)
 }

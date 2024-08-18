@@ -9,7 +9,7 @@ import (
 )
 
 type MinioStorageInterface interface {
-	UploadFile(ctx context.Context, fileName string, file io.Reader) (string, error)
+	UploadFile(fileName string, file io.Reader) (string, error)
 	GetFileURL(fileName string) string
 }
 
@@ -42,9 +42,9 @@ func NewMinioStorage(endpoint, accessKeyID, secretAccessKey, bucketName string) 
 	}, nil
 }
 
-func (s *MinioStorage) UploadFile(ctx context.Context, fileName string, file io.Reader) (string, error) {
+func (s *MinioStorage) UploadFile(fileName string, file io.Reader) (string, error) {
 	// Upload the file to MinIO
-	_, err := s.client.PutObject(ctx, s.bucket, fileName, file, -1, minio.PutObjectOptions{})
+	_, err := s.client.PutObject(context.Background(), s.bucket, fileName, file, -1, minio.PutObjectOptions{})
 	if err != nil {
 		return "", fmt.Errorf("could not upload file: %w", err)
 	}

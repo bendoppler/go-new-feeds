@@ -3,6 +3,7 @@ package service
 import (
 	"github.com/go-redis/redis/v8"
 	"news-feed/internal/repository"
+	"news-feed/internal/storage"
 )
 
 type ServiceFactoryInterface interface {
@@ -17,5 +18,5 @@ func (*ServiceFactory) CreateUserService(userRepo repository.UserRepositoryInter
 }
 
 func (*ServiceFactory) CreatePostService(repo repository.PostRepository) PostServiceInterface {
-	return &PostService{postRepo: repo}
+	return &PostService{postRepo: repo, storage: storage.StorageFactory{}.CreateMinioStorage()}
 }

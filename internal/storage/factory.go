@@ -5,13 +5,13 @@ import (
 	"os"
 )
 
-type FactoryInterface interface {
+type StorageFactoryInterface interface {
 	CreateMinioStorage() (MinioStorageInterface, error)
 }
 
-type Factory struct{}
+type StorageFactory struct{}
 
-func (f *Factory) CreateMinioStorage() (MinioStorageInterface, error) {
+func (f *StorageFactory) CreateMinioStorage() (MinioStorageInterface, error) {
 	// Read MinIO configuration from environment variables
 	endpoint := os.Getenv("MINIO_ENDPOINT")
 	accessKeyID := os.Getenv("MINIO_ACCESS_KEY")
