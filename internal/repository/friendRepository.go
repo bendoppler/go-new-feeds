@@ -19,7 +19,7 @@ type FriendsRepository struct {
 // GetFriends retrieves the list of friends for a user.
 func (r *FriendsRepository) GetFriends(userID int) ([]entity.User, error) {
 	rows, err := r.db.Query(
-		"SELECT id, first_name, last_name, email, user_name FROM users WHERE id IN (SELECT friend_id FROM friends WHERE user_id = ?)",
+		"SELECT id, first_name, last_name, email, user_name FROM user WHERE id IN (SELECT fk_follower_id FROM user_user WHERE fk_user_id = ?)",
 		userID,
 	)
 	if err != nil {
