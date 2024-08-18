@@ -3,8 +3,10 @@ package repository
 import (
 	"database/sql"
 	"errors"
+	"fmt"
 	_ "github.com/go-sql-driver/mysql" // Import the MySQL driver
 	"news-feed/internal/entity"
+	"strings"
 )
 
 // UserRepositoryInterface defines the methods for user data operations.
@@ -21,30 +23,62 @@ type UserRepository struct {
 
 // GetByUserName retrieves a user by their username.
 func (r *UserRepository) GetByUserName(userName string) (entity.User, error) {
+	query := `SELECT id, hashed_password, salt, first_name, last_name, dob, email, user_name FROM user WHERE user_name = ?`
+	row := r.db.QueryRow(query, userName)
+
 	var user entity.User
-	query := "SELECT id, username, email, first_name, last_name, birthday, password FROM users WHERE username = ?"
-	err := r.db.QueryRow(query, userName).Scan(
-		&user.ID, &user.UserName, &user.Email, &user.FirstName, &user.LastName, &user.Birthday, &user.Password,
+	err := row.Scan(
+		&user.ID, &user.HashedPassword, &user.Salt, &user.FirstName, &user.LastName, &user.Birthday, &user.Email,
+		&user.Username,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
-			return user, nil // User not found
+			return user, fmt.Errorf("user not found")
 		}
-		return user, err
+		return user, fmt.Errorf("error getting user: %v", err)
 	}
 	return user, nil
 }
 
-// CreateUser inserts a new user into the database.
 func (r *UserRepository) CreateUser(user entity.User) error {
-	query := "INSERT INTO users (username, email, first_name, last_name, birthday, password) VALUES (?, ?, ?, ?, ?, ?)"
-	_, err := r.db.Exec(query, user.UserName, user.Email, user.FirstName, user.LastName, user.Birthday, user.Password)
-	return err
+	query := `INSERT INTO user (hashed_password, salt, first_name, last_name, dob, email, user_name) 
+		VALUES (?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.db.Exec(
+		query, user.HashedPassword, user.Salt, user.FirstName, user.LastName, user.Birthday, user.Email, user.Username,
+	)
+	if err != nil {
+		return fmt.Errorf("error creating user: %v", err)
+	}
+	return nil
 }
 
 // UpdateUser updates an existing user in the database.
 func (r *UserRepository) UpdateUser(user entity.User) error {
-	query := "UPDATE users SET first_name = ?, last_name = ?, birthday = ?, password = ? WHERE username = ?"
-	_, err := r.db.Exec(query, user.FirstName, user.LastName, user.Birthday, user.Password, user.UserName)
+	var updateFields []string
+	var args []interface{}
+	if user.FirstName != "" {
+		updateFields = append(updateFields, "first_name = ?")
+		args = append(args, user.FirstName)
+	}
+	if user.LastName != "" {
+		updateFields = append(updateFields, "last_name = ?")
+		args = append(args, user.LastName)
+	}
+	if !user.Birthday.IsZero() {
+		updateFields = append(updateFields, "dob = ?")
+		args = append(args, user.Birthday)
+	}
+	if user.HashedPassword != "" {
+		updateFields = append(updateFields, "hashed_password = ?, salt = ?")
+		args = append(args, user.HashedPassword, user.Salt)
+	}
+
+	if len(updateFields) == 0 {
+		return nil // No fields to update
+	}
+
+	args = append(args, user.Username)
+	updateQuery := "UPDATE user SET" + " " + strings.Join(updateFields, ", ") + " WHERE user_name = ?"
+	_, err := r.db.Exec(updateQuery, args...)
 	return err
 }

@@ -1,6 +1,9 @@
 package service
 
-import "news-feed/internal/repository"
+import (
+	"github.com/go-redis/redis/v8"
+	"news-feed/internal/repository"
+)
 
 type ServiceFactoryInterface interface {
 	CreateUserService(userRepo repository.UserRepositoryInterface) UserServiceInterface
@@ -9,8 +12,8 @@ type ServiceFactoryInterface interface {
 
 type ServiceFactory struct{}
 
-func (*ServiceFactory) CreateUserService(userRepo repository.UserRepositoryInterface) UserServiceInterface {
-	return &UserService{userRepo: userRepo}
+func (*ServiceFactory) CreateUserService(userRepo repository.UserRepositoryInterface, redisClient *redis.Client) UserServiceInterface {
+	return &UserService{userRepo: userRepo, redisClient: redisClient}
 }
 
 func (*ServiceFactory) CreatePostService(repo repository.PostRepository) PostServiceInterface {
