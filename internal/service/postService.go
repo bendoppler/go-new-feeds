@@ -19,7 +19,7 @@ type PostServiceInterface interface {
 }
 
 type PostService struct {
-	postRepo repository.PostRepository
+	postRepo repository.PostRepositoryInterface
 	storage  storage.MinioStorageInterface
 }
 

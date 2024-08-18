@@ -24,7 +24,7 @@ type PostHandlerInterface interface {
 }
 
 type PostHandler struct {
-	postService service.PostService
+	postService service.PostServiceInterface
 }
 
 func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
