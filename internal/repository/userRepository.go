@@ -19,11 +19,6 @@ type UserRepository struct {
 	db *sql.DB
 }
 
-// NewUserRepository creates a new UserRepository.
-func NewUserRepository(db *sql.DB) UserRepositoryInterface {
-	return &UserRepository{db: db}
-}
-
 // GetByUserName retrieves a user by their username.
 func (r *UserRepository) GetByUserName(userName string) (entity.User, error) {
 	var user entity.User

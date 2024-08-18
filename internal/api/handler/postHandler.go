@@ -7,42 +7,34 @@ import (
 	"news-feed/internal/service"
 )
 
-// PostHandler handles requests related to posts.
+type PostHandlerInterface interface {
+	CreatePost(w http.ResponseWriter, r *http.Request)
+}
+
 type PostHandler struct {
 	postService service.PostService
 }
 
-// NewPostHandler creates a new PostHandler.
-func NewPostHandler(postService service.PostService) *PostHandler {
-	return &PostHandler{
-		postService: postService,
-	}
-}
-
-// GetPosts handles GET requests to fetch all posts.
-func (h *PostHandler) GetPosts(w http.ResponseWriter, r *http.Request) {
-	posts, err := h.postService.GetAllPosts()
-	if err != nil {
-		http.Error(w, "Failed to fetch posts", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(posts)
-}
-
-// CreatePost handles POST requests to create a new post.
 func (h *PostHandler) CreatePost(w http.ResponseWriter, r *http.Request) {
 	var post model.Post
-	if err := json.NewDecoder(r.Body).Decode(&post); err != nil {
+	err := json.NewDecoder(r.Body).Decode(&post)
+	if err != nil {
 		http.Error(w, "Invalid request payload", http.StatusBadRequest)
 		return
 	}
 
-	if err := h.postService.CreatePost(post); err != nil {
-		http.Error(w, "Failed to create post", http.StatusInternalServerError)
+	msg, success, errCode := h.postService.CreatePost(&post)
+	if !success {
+		http.Error(w, msg, http.StatusInternalServerError)
 		return
 	}
 
 	w.WriteHeader(http.StatusCreated)
+	json.NewEncoder(w).Encode(
+		map[string]interface{}{
+			"msg":        msg,
+			"is_success": success,
+			"err_code":   errCode,
+		},
+	)
 }
