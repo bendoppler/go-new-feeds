@@ -34,7 +34,7 @@ func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"msg": msg.UserName})
+	err = json.NewEncoder(w).Encode(map[string]string{"msg": msg})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -57,7 +57,7 @@ func (h *UserHandler) Signup(w http.ResponseWriter, r *http.Request) {
 
 	// Convert API model to entity model
 	newUser := entity.User{
-		UserName:  signupRequest.UserName,
+		Username:  signupRequest.UserName,
 		Email:     signupRequest.Email,
 		FirstName: signupRequest.FirstName,
 		LastName:  signupRequest.LastName,

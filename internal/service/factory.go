@@ -1,7 +1,7 @@
 package service
 
 import (
-	"github.com/go-redis/redis/v8"
+	"news-feed/internal/cache"
 	"news-feed/internal/repository"
 	"news-feed/internal/storage"
 )
@@ -15,8 +15,8 @@ type ServiceFactoryInterface interface {
 
 type ServiceFactory struct{}
 
-func (*ServiceFactory) CreateUserService(userRepo repository.UserRepositoryInterface, redisClient *redis.Client) UserServiceInterface {
-	return &UserService{userRepo: userRepo, redisClient: redisClient}
+func (*ServiceFactory) CreateUserService(userRepo repository.UserRepositoryInterface) UserServiceInterface {
+	return &UserService{userRepo: userRepo, redisClient: cache.GetRedisClient()}
 }
 
 func (*ServiceFactory) CreatePostService(repo repository.PostRepositoryInterface, storage storage.MinioStorageInterface) PostServiceInterface {

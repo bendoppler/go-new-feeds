@@ -38,7 +38,7 @@ func Migrate(db *sql.DB) error {
 			FOREIGN KEY (fk_user_id) REFERENCES user(id)
 		);`,
 
-		`CREATE TABLE IF NOT EXISTS `like` (
+		`CREATE TABLE IF NOT EXISTS like (
 			fk_post_id INT NOT NULL,
 			fk_user_id INT NOT NULL,
 			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
