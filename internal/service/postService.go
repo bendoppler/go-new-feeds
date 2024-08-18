@@ -1,6 +1,7 @@
 package service
 
 import (
+	"fmt"
 	"io"
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
@@ -14,6 +15,7 @@ type PostServiceInterface interface {
 	DeletePost(postID int) error
 	CommentOnPost(postID int, comment string) error
 	LikePost(postID int) error
+	UploadImage(fileName string, file io.Reader) (string, error)
 }
 
 type PostService struct {
@@ -42,6 +44,16 @@ func (s *PostService) CreatePost(text string, imageFileName string, imageFile io
 	}
 
 	return "Post created successfully", true, ""
+}
+
+func (s *PostService) UploadImage(fileName string, file io.Reader) (string, error) {
+	// Call the storage interface's UploadFile method to upload the image
+	imageURL, err := s.storage.UploadFile(fileName, file)
+	if err != nil {
+		return "", fmt.Errorf("could not upload image: %w", err)
+	}
+
+	return imageURL, nil
 }
 
 func (s *PostService) GetPost(postID int) (entity.Post, error) {
