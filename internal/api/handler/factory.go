@@ -24,3 +24,7 @@ func (*HandlerFactory) CreatePostHandler(postService service.PostServiceInterfac
 func (*HandlerFactory) CreateFriendsHandler(friendsService service.FriendsServiceInterface) FriendsHandlerInterface {
 	return &FriendsHandler{friendsService: friendsService}
 }
+
+func (*HandlerFactory) CreateNewsFeedHandler(newsFeedService service.NewsFeedServiceInterface) NewsFeedHandlerInterface {
+	return &NewsfeedHandler{newsFeedService: newsFeedService}
+}

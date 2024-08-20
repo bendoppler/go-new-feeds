@@ -7,12 +7,15 @@ import (
 	"news-feed/internal/api/model"
 	"news-feed/internal/entity"
 	"news-feed/internal/service"
+	"news-feed/pkg/middleware"
 	"time"
 )
 
 type UserHandlerInterface interface {
-	Login(w http.ResponseWriter, r *http.Request)
-	Signup(w http.ResponseWriter, r *http.Request)
+	Login() http.HandlerFunc
+	Signup() http.HandlerFunc
+	EditProfile() http.HandlerFunc
+	UserHandler(w http.ResponseWriter, r *http.Request)
 }
 
 // UserHandler handles requests related to users.
@@ -20,98 +23,115 @@ type UserHandler struct {
 	userService service.UserServiceInterface
 }
 
-func (h *UserHandler) Login(w http.ResponseWriter, r *http.Request) {
-	var credentials model.LoginRequest
-	if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
+func (h *UserHandler) UserHandler(w http.ResponseWriter, r *http.Request) {
+	switch r.Method {
+	case http.MethodPost:
+		h.Signup()
+	case http.MethodPut:
+		middleware.JWTAuthMiddleware()(h.EditProfile())
+	default:
+		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}
+}
 
-	msg, err := h.userService.Login(credentials.UserName, credentials.Password)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusUnauthorized)
-		return
-	}
+func (h *UserHandler) Login() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var credentials model.LoginRequest
+		if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"msg": msg})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		token, err := h.userService.Login(credentials.UserName, credentials.Password)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusUnauthorized)
+			return
+		}
+
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(map[string]string{"token": token})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
 // Signup handles POST requests for user signup.
-func (h *UserHandler) Signup(w http.ResponseWriter, r *http.Request) {
-	var signupRequest model.SignupRequest
-	if err := json.NewDecoder(r.Body).Decode(&signupRequest); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
+func (h *UserHandler) Signup() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var signupRequest model.SignupRequest
+		if err := json.NewDecoder(r.Body).Decode(&signupRequest); err != nil {
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
 
-	birthday, err := h.convertStringToDate(signupRequest.Birthday)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		birthday, err := h.convertStringToDate(signupRequest.Birthday)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	// Convert API model to entity model
-	newUser := entity.User{
-		Username:  signupRequest.UserName,
-		Email:     signupRequest.Email,
-		FirstName: signupRequest.FirstName,
-		LastName:  signupRequest.LastName,
-		Birthday:  birthday,
-		Password:  signupRequest.Password,
-	}
+		// Convert API model to entity model
+		newUser := entity.User{
+			Username:  signupRequest.UserName,
+			Email:     signupRequest.Email,
+			FirstName: signupRequest.FirstName,
+			LastName:  signupRequest.LastName,
+			Birthday:  birthday,
+			Password:  signupRequest.Password,
+		}
 
-	err = h.userService.Signup(newUser)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		token, err := h.userService.Signup(newUser)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"msg": "User created successfully"})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(map[string]string{"token": token})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 
 // EditProfile handles PUT requests for editing user profile.
-func (h *UserHandler) EditProfile(w http.ResponseWriter, r *http.Request) {
-	var profileUpdate model.ProfileUpdateRequest
-	if err := json.NewDecoder(r.Body).Decode(&profileUpdate); err != nil {
-		http.Error(w, "Invalid request payload", http.StatusBadRequest)
-		return
-	}
+func (h *UserHandler) EditProfile() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		var profileUpdate model.ProfileUpdateRequest
+		if err := json.NewDecoder(r.Body).Decode(&profileUpdate); err != nil {
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			return
+		}
 
-	birthday, err := h.convertStringToDate(profileUpdate.Birthday)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+		birthday, err := h.convertStringToDate(profileUpdate.Birthday)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusBadRequest)
+			return
+		}
 
-	// Convert API model to entity model
-	user := entity.User{
-		FirstName: profileUpdate.FirstName,
-		LastName:  profileUpdate.LastName,
-		Birthday:  birthday,
-		Password:  profileUpdate.Password,
-	}
+		// Convert API model to entity model
+		user := entity.User{
+			FirstName: profileUpdate.FirstName,
+			LastName:  profileUpdate.LastName,
+			Birthday:  birthday,
+			Password:  profileUpdate.Password,
+		}
 
-	err = h.userService.EditProfile(user)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+		err = h.userService.EditProfile(user)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(map[string]string{"msg": "Profile updated successfully"})
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(map[string]string{"msg": "Profile updated successfully"})
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }
 

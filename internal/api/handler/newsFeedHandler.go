@@ -8,7 +8,7 @@ import (
 )
 
 type NewsFeedHandlerInterface interface {
-	GetNewsfeed(w http.ResponseWriter, r *http.Request)
+	GetNewsfeed() http.HandlerFunc
 }
 
 type NewsfeedHandler struct {
@@ -16,17 +16,19 @@ type NewsfeedHandler struct {
 }
 
 // GetNewsfeed handles GET requests for retrieving newsfeed posts.
-func (h *NewsfeedHandler) GetNewsfeed(w http.ResponseWriter, r *http.Request) {
-	posts, err := h.newsFeedService.GetNewsfeedPosts()
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+func (h *NewsfeedHandler) GetNewsfeed() http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		posts, err := h.newsFeedService.GetNewsfeedPosts()
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(posts)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(posts)
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 	}
 }

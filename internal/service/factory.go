@@ -26,3 +26,7 @@ func (*ServiceFactory) CreatePostService(repo repository.PostRepositoryInterface
 func (*ServiceFactory) CreateFriendsService(friendsRepo repository.FriendsRepositoryInterface, postRepo repository.PostRepositoryInterface) FriendsServiceInterface {
 	return &FriendsService{friendsRepo: friendsRepo, postRepo: postRepo}
 }
+
+func (*ServiceFactory) CreateNewsFeedService(postRepo repository.PostRepositoryInterface) NewsFeedServiceInterface {
+	return &NewsFeedService{postRepo: postRepo}
+}

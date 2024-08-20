@@ -40,8 +40,8 @@ go-newsfeed-server/
 │   │   └── userService.go
 │   └── storage/
 │       └── minioStorage.go
-├── config/
-│   └── config.go
+├── envConfig/
+│   └── envConfig.go
 ├── docker-compose.yml
 ├── Dockerfile
 ├── go.mod
@@ -85,9 +85,9 @@ Contains application code that is not intended to be used outside of this projec
 - **`storage/`**
     - **`minioStorage.go`**: Implements file storage using MinIO.
 
-### `config/`
+### `envConfig/`
 Contains configuration files.
-- **`config.go`**: Application configuration settings.
+- **`envConfig.go`**: Application configuration settings.
 
 ### Root Directory
 - **`docker-compose.yml`**: Defines Docker services for the project.

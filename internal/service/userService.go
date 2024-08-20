@@ -5,18 +5,21 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
+	"encoding/json"
+	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
 	"log"
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
+	"news-feed/pkg/middleware"
 	"time"
 )
 
 // UserServiceInterface defines methods for user-related business logic.
 type UserServiceInterface interface {
 	Login(username, password string) (string, error)
-	Signup(user entity.User) error
+	Signup(user entity.User) (string, error)
 	EditProfile(user entity.User) error
 }
 
@@ -26,7 +29,7 @@ type UserService struct {
 	redisClient *redis.Client
 }
 
-func (s *UserService) Signup(user entity.User) error {
+func (s *UserService) Signup(user entity.User) (string, error) {
 	// Generate salt
 	salt := generateSalt()
 
@@ -38,31 +41,74 @@ func (s *UserService) Signup(user entity.User) error {
 
 	err := s.userRepo.CreateUser(user)
 	if err != nil {
-		return err
+		return "", err
 	}
-	return nil
+	// Generate JWT
+	jwtToken, err := middleware.GenerateJWT(string(rune(user.ID)))
+	if err != nil {
+		return "", fmt.Errorf("could not generate JWT: %v", err)
+	}
+
+	// Store the JWT in Redis with a TTL (e.g., 24 hours)
+	err = s.redisClient.Set(context.Background(), jwtToken, user.Username, 24*time.Hour).Err()
+	if err != nil {
+		return "", fmt.Errorf("could not store JWT in Redis: %v", err)
+	}
+
+	return jwtToken, nil
 }
 
 func (s *UserService) Login(username, password string) (string, error) {
-	user, err := s.userRepo.GetByUserName(username)
-	if err != nil {
-		return "", err
+	// Check if user data is cached in Redis
+	cachedUser, err := s.redisClient.Get(context.Background(), username).Result()
+	if errors.Is(err, redis.Nil) {
+		// Cache miss, fetch user from the database
+		user, err := s.userRepo.GetByUserName(username)
+		if err != nil {
+			return "", err
+		}
+
+		// Cache the user data in Redis for future requests
+		userData, err := json.Marshal(user)
+		if err != nil {
+			return "", fmt.Errorf("could not marshal user data: %v", err)
+		}
+
+		err = s.redisClient.Set(context.Background(), username, userData, 24*time.Hour).Err()
+		if err != nil {
+			return "", fmt.Errorf("could not store user data in Redis: %v", err)
+		}
+
+		cachedUser = string(userData)
+	} else if err != nil {
+		return "", fmt.Errorf("could not retrieve user from Redis: %v", err)
 	}
 
+	// Unmarshal the cached user data
+	var user entity.User
+	err = json.Unmarshal([]byte(cachedUser), &user)
+	if err != nil {
+		return "", fmt.Errorf("could not unmarshal cached user data: %v", err)
+	}
+
+	// Verify the password
 	if !verifyPassword(password, user.HashedPassword, user.Salt) {
 		return "", fmt.Errorf("invalid credentials")
 	}
 
-	// Create session token
-	sessionToken := generateSessionToken()
-
-	// Store session in Redis
-	err = s.redisClient.Set(context.Background(), sessionToken, username, 24*time.Hour).Err()
+	// Generate JWT
+	jwtToken, err := middleware.GenerateJWT(string(rune(user.ID)))
 	if err != nil {
-		return "", fmt.Errorf("could not store session in Redis: %v", err)
+		return "", fmt.Errorf("could not generate JWT: %v", err)
 	}
 
-	return sessionToken, nil
+	// Store the JWT in Redis with a TTL (e.g., 24 hours)
+	err = s.redisClient.Set(context.Background(), jwtToken, username, 24*time.Hour).Err()
+	if err != nil {
+		return "", fmt.Errorf("could not store JWT in Redis: %v", err)
+	}
+
+	return jwtToken, nil
 }
 
 // EditProfile updates a user's profile.
