@@ -6,6 +6,14 @@ import (
 )
 
 func Migrate(db *sql.DB) error {
+	likeQuery := "CREATE TABLE IF NOT EXISTS `like` (" +
+		"fk_post_id INT NOT NULL," +
+		"fk_user_id INT NOT NULL," +
+		"created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP," +
+		"PRIMARY KEY (fk_post_id, fk_user_id)," +
+		"FOREIGN KEY (fk_post_id) REFERENCES post(id)," +
+		"FOREIGN KEY (fk_user_id) REFERENCES user(id)" +
+		");"
 	queries := []string{
 		`CREATE TABLE IF NOT EXISTS user (
 			id INT AUTO_INCREMENT PRIMARY KEY,
@@ -38,15 +46,6 @@ func Migrate(db *sql.DB) error {
 			FOREIGN KEY (fk_user_id) REFERENCES user(id)
 		);`,
 
-		`CREATE TABLE IF NOT EXISTS like (
-			fk_post_id INT NOT NULL,
-			fk_user_id INT NOT NULL,
-			created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-			PRIMARY KEY (fk_post_id, fk_user_id),
-			FOREIGN KEY (fk_post_id) REFERENCES post(id),
-			FOREIGN KEY (fk_user_id) REFERENCES user(id)
-		);`,
-
 		`CREATE TABLE IF NOT EXISTS user_user (
 			fk_user_id INT NOT NULL,
 			fk_follower_id INT NOT NULL,
@@ -54,6 +53,8 @@ func Migrate(db *sql.DB) error {
 			FOREIGN KEY (fk_user_id) REFERENCES user(id),
 			FOREIGN KEY (fk_follower_id) REFERENCES user(id)
 		);`,
+
+		likeQuery,
 	}
 
 	for _, query := range queries {
