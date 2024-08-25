@@ -35,6 +35,8 @@ func (factory *PersistentFactory) CreateMySQLDatabase() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
+	db.SetMaxIdleConns(10)  // Number of idle connections
+	db.SetMaxOpenConns(100) // Maximum number of open connections
 
 	return db, nil
 }

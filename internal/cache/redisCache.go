@@ -6,6 +6,7 @@ import (
 	"github.com/joho/godotenv"
 	"log"
 	"os"
+	"time"
 )
 
 var redisClient *redis.Client
@@ -26,9 +27,14 @@ func newRedisClient() *redis.Client {
 
 	client := redis.NewClient(
 		&redis.Options{
-			Addr:     "localhost:6379",
-			Password: password,
-			DB:       0,
+			Addr:         "localhost:6379",
+			Password:     password,
+			DB:           0,
+			PoolSize:     300,             // Further increase if needed
+			MinIdleConns: 50,              // Minimum idle connections
+			DialTimeout:  5 * time.Second, // Reduce timeouts
+			ReadTimeout:  5 * time.Second,
+			WriteTimeout: 5 * time.Second,
 		},
 	)
 

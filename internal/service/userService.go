@@ -12,6 +12,7 @@ import (
 	"log"
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
+	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"time"
 )
@@ -62,25 +63,18 @@ func (s *UserService) Login(username, password string) (string, error) {
 	// Check if user data is cached in Redis
 	cachedUser, err := s.redisClient.Get(context.Background(), username).Result()
 	if errors.Is(err, redis.Nil) {
-		// Cache miss, fetch user from the database
-		user, err := s.userRepo.GetByUserName(username)
-		if err != nil {
-			return "", err
+		localCachedUser, s2, err2 := s.getUserFromDBAndCache(username, cachedUser)
+		cachedUser = localCachedUser
+		if err2 != nil {
+			return s2, err2
 		}
-
-		// Cache the user data in Redis for future requests
-		userData, err := json.Marshal(user)
-		if err != nil {
-			return "", fmt.Errorf("could not marshal user data: %v", err)
-		}
-
-		err = s.redisClient.Set(context.Background(), username, userData, 24*time.Hour).Err()
-		if err != nil {
-			return "", fmt.Errorf("could not store user data in Redis: %v", err)
-		}
-
-		cachedUser = string(userData)
 	} else if err != nil {
+		localCachedUser, s2, err2 := s.getUserFromDBAndCache(username, cachedUser)
+		cachedUser = localCachedUser
+		if err2 != nil {
+			return s2, err2
+		}
+		logger.LogError(fmt.Sprintf("Error when get user from redis: %v", err))
 		return "", fmt.Errorf("could not retrieve user from Redis: %v", err)
 	}
 
@@ -88,27 +82,56 @@ func (s *UserService) Login(username, password string) (string, error) {
 	var user entity.User
 	err = json.Unmarshal([]byte(cachedUser), &user)
 	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when unmarshalling user: %v", err))
 		return "", fmt.Errorf("could not unmarshal cached user data: %v", err)
 	}
 
 	// Verify the password
 	if !verifyPassword(password, user.HashedPassword, user.Salt) {
+		logger.LogError(fmt.Sprintf("Error when verifying password: %v", err))
 		return "", fmt.Errorf("invalid credentials")
 	}
 
 	// Generate JWT
 	jwtToken, err := middleware.GenerateJWT(string(rune(user.ID)))
 	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when generate JWT: %v", err))
 		return "", fmt.Errorf("could not generate JWT: %v", err)
 	}
 
 	// Store the JWT in Redis with a TTL (e.g., 24 hours)
 	err = s.redisClient.Set(context.Background(), jwtToken, username, 24*time.Hour).Err()
 	if err != nil {
-		return "", fmt.Errorf("could not store JWT in Redis: %v", err)
+		logger.LogError(fmt.Sprintf("Error when store JWT in Redis: %v", err))
+		//return "", fmt.Errorf("could not store JWT in Redis: %v", err)
 	}
 
 	return jwtToken, nil
+}
+
+func (s *UserService) getUserFromDBAndCache(username string, cachedUser string) (string, string, error) {
+	// Cache miss, fetch user from the database
+	user, err := s.userRepo.GetByUserName(username)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when get user from db %v", err))
+		return "", "", err
+	}
+
+	// Cache the user data in Redis for future requests
+	userData, err := json.Marshal(user)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when marshalling user: %v", err))
+		return "", "", fmt.Errorf("could not marshal user data: %v", err)
+	}
+
+	err = s.redisClient.Set(context.Background(), username, userData, 24*time.Hour).Err()
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when store user in Redis: %v", err))
+		return "", "", fmt.Errorf("could not store user data in Redis: %v", err)
+	}
+
+	cachedUser = string(userData)
+	return cachedUser, "", nil
 }
 
 // EditProfile updates a user's profile.
@@ -140,14 +163,4 @@ func hashPassword(password, salt string) string {
 
 func verifyPassword(password, hashedPassword, salt string) bool {
 	return hashPassword(password, salt) == hashedPassword
-}
-
-func generateSessionToken() string {
-	// Generate a random session token (this is a placeholder; consider using a more robust method)
-	token := make([]byte, 32)
-	_, err := rand.Read(token)
-	if err != nil {
-		log.Fatalf("Failed to generate session token: %v", err)
-	}
-	return base64.StdEncoding.EncodeToString(token)
 }
