@@ -4,6 +4,7 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"time"
 )
 
 type PersistentFactoryInterface interface {
@@ -35,8 +36,9 @@ func (factory *PersistentFactory) CreateMySQLDatabase() (*sql.DB, error) {
 	if err != nil {
 		return nil, err
 	}
-	db.SetMaxIdleConns(10)  // Number of idle connections
-	db.SetMaxOpenConns(100) // Maximum number of open connections
+	db.SetMaxOpenConns(100)                // Max number of open connections
+	db.SetMaxIdleConns(5)                  // Max number of idle connections
+	db.SetConnMaxLifetime(time.Second * 5) // Recycle connections periodically
 
 	return db, nil
 }

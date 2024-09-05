@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/base64"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"github.com/go-redis/redis/v8"
@@ -60,78 +59,79 @@ func (s *UserService) Signup(user entity.User) (string, error) {
 }
 
 func (s *UserService) Login(username, password string) (string, error) {
+	// Define the Redis key for the user
+	redisKey := fmt.Sprintf("user:%s", username)
+
 	// Check if user data is cached in Redis
-	cachedUser, err := s.redisClient.Get(context.Background(), username).Result()
-	if errors.Is(err, redis.Nil) {
-		localCachedUser, s2, err2 := s.getUserFromDBAndCache(username, cachedUser)
-		cachedUser = localCachedUser
-		if err2 != nil {
-			return s2, err2
+	cachedUserData, err := s.redisClient.HGetAll(context.Background(), redisKey).Result()
+	if err != nil {
+		if errors.Is(err, redis.Nil) || len(cachedUserData) == 0 {
+			// User not in cache, fetch from DB and cache it
+			localCachedUser, s2, err2 := s.getUserFromDBAndCache(username)
+			if err2 != nil {
+				return s2, err2
+			}
+			cachedUserData = map[string]string{
+				"hashedPassword": localCachedUser.HashedPassword,
+				"salt":           localCachedUser.Salt,
+			}
+		} else {
+			logger.LogError(fmt.Sprintf("Error when getting user data from Redis: %v", err))
+			return "", fmt.Errorf("could not retrieve user data from Redis: %v", err)
 		}
-	} else if err != nil {
-		localCachedUser, s2, err2 := s.getUserFromDBAndCache(username, cachedUser)
-		cachedUser = localCachedUser
-		if err2 != nil {
-			return s2, err2
-		}
-		logger.LogError(fmt.Sprintf("Error when get user from redis: %v", err))
-		return "", fmt.Errorf("could not retrieve user from Redis: %v", err)
 	}
 
-	// Unmarshal the cached user data
-	var user entity.User
-	err = json.Unmarshal([]byte(cachedUser), &user)
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Error when unmarshalling user: %v", err))
-		return "", fmt.Errorf("could not unmarshal cached user data: %v", err)
+	// Extract user fields from the cached data
+	hashedPassword, passwordExists := cachedUserData["hashedPassword"]
+	salt, saltExists := cachedUserData["salt"]
+
+	// If some fields are missing, fetch from the database
+	if !passwordExists || !saltExists {
+		localCachedUser, s2, err2 := s.getUserFromDBAndCache(username)
+		if err2 != nil {
+			return s2, err2
+		}
+		hashedPassword = localCachedUser.HashedPassword
+		salt = localCachedUser.Salt
 	}
 
 	// Verify the password
-	if !verifyPassword(password, user.HashedPassword, user.Salt) {
+	if !verifyPassword(password, hashedPassword, salt) {
 		logger.LogError(fmt.Sprintf("Error when verifying password: %v", err))
 		return "", fmt.Errorf("invalid credentials")
 	}
 
 	// Generate JWT
-	jwtToken, err := middleware.GenerateJWT(string(rune(user.ID)))
+	jwtToken, err := middleware.GenerateJWT(username)
 	if err != nil {
 		logger.LogError(fmt.Sprintf("Error when generate JWT: %v", err))
 		return "", fmt.Errorf("could not generate JWT: %v", err)
 	}
-
-	// Store the JWT in Redis with a TTL (e.g., 24 hours)
-	err = s.redisClient.Set(context.Background(), jwtToken, username, 24*time.Hour).Err()
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Error when store JWT in Redis: %v", err))
-		//return "", fmt.Errorf("could not store JWT in Redis: %v", err)
-	}
-
 	return jwtToken, nil
 }
 
-func (s *UserService) getUserFromDBAndCache(username string, cachedUser string) (string, string, error) {
+func (s *UserService) getUserFromDBAndCache(username string) (entity.User, string, error) {
 	// Cache miss, fetch user from the database
 	user, err := s.userRepo.GetByUserName(username)
 	if err != nil {
 		logger.LogError(fmt.Sprintf("Error when get user from db %v", err))
-		return "", "", err
+		return entity.User{}, "", err
 	}
 
-	// Cache the user data in Redis for future requests
-	userData, err := json.Marshal(user)
+	// Cache the user data in Redis using a hash set
+	redisKey := fmt.Sprintf("user:%s", username)
+	userCacheData := map[string]interface{}{
+		"hashedPassword": user.HashedPassword,
+		"salt":           user.Salt,
+	}
+
+	err = s.redisClient.HSet(context.Background(), redisKey, userCacheData).Err()
 	if err != nil {
-		logger.LogError(fmt.Sprintf("Error when marshalling user: %v", err))
-		return "", "", fmt.Errorf("could not marshal user data: %v", err)
+		logger.LogError(fmt.Sprintf("Error when caching user data in Redis: %v", err))
+		return user, "Could not cache user data", err
 	}
 
-	err = s.redisClient.Set(context.Background(), username, userData, 24*time.Hour).Err()
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Error when store user in Redis: %v", err))
-		return "", "", fmt.Errorf("could not store user data in Redis: %v", err)
-	}
-
-	cachedUser = string(userData)
-	return cachedUser, "", nil
+	return user, "", nil
 }
 
 // EditProfile updates a user's profile.

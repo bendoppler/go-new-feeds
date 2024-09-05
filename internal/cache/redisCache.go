@@ -30,9 +30,9 @@ func newRedisClient() *redis.Client {
 			Addr:         "localhost:6379",
 			Password:     password,
 			DB:           0,
-			PoolSize:     300,             // Further increase if needed
-			MinIdleConns: 50,              // Minimum idle connections
-			DialTimeout:  5 * time.Second, // Reduce timeouts
+			PoolSize:     300,              // Further increase if needed
+			MinIdleConns: 50,               // Minimum idle connections
+			DialTimeout:  10 * time.Second, // Reduce timeouts
 			ReadTimeout:  5 * time.Second,
 			WriteTimeout: 5 * time.Second,
 		},
