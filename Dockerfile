@@ -1,5 +1,5 @@
 # Use the official Golang image as a base
-FROM golang:1.20 AS builder
+FROM golang:1.23 AS builder
 
 # Set the Current Working Directory inside the container
 WORKDIR /app
@@ -13,17 +13,26 @@ RUN go mod download
 # Copy the source code into the container
 COPY . .
 
-# Build the Go app
-RUN go build -o main cmd/news-feed/main.go
+# Copy the .env file into the container
+COPY .env .env
 
-# Start a new stage from scratch
-FROM scratch
+# Build the Go app
+RUN CGO_ENABLED=0 GOOS=linux go build -o main cmd/news-feed/main.go
+
+# Use a minimal base image with common utilities
+FROM alpine:latest
 
 # Copy the Pre-built binary file from the previous stage
-COPY --from=builder /app/main .
+COPY --from=builder /app/main /main
+
+# Copy the .env file from the builder stage
+COPY --from=builder /app/.env .env
+
+# Ensure that the binary is executable
+RUN chmod +x /main
 
 # Expose port 8080 to the outside world
 EXPOSE 8080
 
 # Command to run the executable
-CMD ["./main"]
+CMD ["/main"]

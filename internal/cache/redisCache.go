@@ -2,6 +2,7 @@ package cache
 
 import (
 	"context"
+	"fmt"
 	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
 	"log"
@@ -24,10 +25,13 @@ func init() {
 
 func newRedisClient() *redis.Client {
 	password := os.Getenv("REDIS_PASSWORD")
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	addr := fmt.Sprintf("%s:%s", redisHost, redisPort)
 
 	client := redis.NewClient(
 		&redis.Options{
-			Addr:         "localhost:6379",
+			Addr:         addr,
 			Password:     password,
 			DB:           0,
 			PoolSize:     300,              // Further increase if needed
