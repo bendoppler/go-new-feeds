@@ -77,9 +77,9 @@ func ValidateJWT(tokenString string) (*Claims, error) {
 }
 
 // GenerateJWT generates a new JWT for a given user ID.
-func GenerateJWT(userID string) (string, error) {
+func GenerateJWT(userName string) (string, error) {
 	claims := jwt.StandardClaims{
-		Subject:   userID,
+		Subject:   userName,
 		ExpiresAt: time.Now().Add(24 * time.Hour).Unix(), // Token valid for 24 hours
 	}
 

@@ -7,6 +7,7 @@ import (
 	"news-feed/internal/api/model"
 	"news-feed/internal/entity"
 	"news-feed/internal/service"
+	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"time"
 )
@@ -38,12 +39,14 @@ func (h *UserHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var credentials model.LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
+			logger.LogError(fmt.Sprintf("Invalid request body: %v", err))
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
 
 		token, err := h.userService.Login(credentials.UserName, credentials.Password)
 		if err != nil {
+			logger.LogError(fmt.Sprintf("Login failed: %v", err))
 			http.Error(w, err.Error(), http.StatusUnauthorized)
 			return
 		}
@@ -51,6 +54,7 @@ func (h *UserHandler) Login() http.HandlerFunc {
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(map[string]string{"token": token})
 		if err != nil {
+			logger.LogError(fmt.Sprintf("Encode failed: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

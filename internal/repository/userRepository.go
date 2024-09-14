@@ -6,6 +6,7 @@ import (
 	"fmt"
 	_ "github.com/go-sql-driver/mysql" // Import the MySQL driver
 	"news-feed/internal/entity"
+	"news-feed/pkg/logger"
 	"strings"
 )
 
@@ -23,18 +24,19 @@ type UserRepository struct {
 
 // GetByUserName retrieves a user by their username.
 func (r *UserRepository) GetByUserName(userName string) (entity.User, error) {
-	query := `SELECT id, hashed_password, salt, first_name, last_name, dob, email, user_name FROM user WHERE user_name = ?`
+	query := `SELECT id, hashed_password, salt, first_name, last_name, email, user_name FROM user WHERE user_name = ?`
 	row := r.db.QueryRow(query, userName)
 
 	var user entity.User
 	err := row.Scan(
-		&user.ID, &user.HashedPassword, &user.Salt, &user.FirstName, &user.LastName, &user.Birthday, &user.Email,
+		&user.ID, &user.HashedPassword, &user.Salt, &user.FirstName, &user.LastName, &user.Email,
 		&user.Username,
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
 			return user, fmt.Errorf("user not found")
 		}
+		logger.LogError(fmt.Sprintf("error getting user: %v", err))
 		return user, fmt.Errorf("error getting user: %v", err)
 	}
 	return user, nil

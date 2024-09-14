@@ -6,6 +6,7 @@ import (
 	"github.com/minio/minio-go/v7"
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"io"
+	"log"
 )
 
 type MinioStorageInterface interface {
@@ -22,7 +23,7 @@ func NewMinioStorage(endpoint, accessKeyID, secretAccessKey, bucketName string) 
 	// Initialize MinIO client
 	minioClient, err := minio.New(
 		endpoint, &minio.Options{
-			Creds:  credentials.NewStatic(accessKeyID, secretAccessKey, "", credentials.SignatureAnonymous),
+			Creds:  credentials.NewStatic(accessKeyID, secretAccessKey, "", credentials.SignatureDefault),
 			Secure: false,
 		},
 	)
@@ -31,9 +32,17 @@ func NewMinioStorage(endpoint, accessKeyID, secretAccessKey, bucketName string) 
 	}
 
 	// Check if the bucket exists
-	found, err := minioClient.BucketExists(context.Background(), bucketName)
-	if err != nil || !found {
-		return nil, fmt.Errorf("bucket %s does not exist: %w", bucketName, err)
+	exists, err := minioClient.BucketExists(context.Background(), bucketName)
+	if !exists {
+		// Create the bucket if it doesn't exist
+		err = minioClient.MakeBucket(context.Background(), bucketName, minio.MakeBucketOptions{})
+		if err != nil {
+			log.Fatalf("Failed to create bucket: %v", err)
+		} else {
+			fmt.Printf("Successfully created bucket: %s\n", bucketName)
+		}
+	} else {
+		fmt.Printf("Bucket %s already exists.\n", bucketName)
 	}
 
 	return &MinioStorage{

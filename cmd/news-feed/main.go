@@ -1,4 +1,4 @@
-package news_feed
+package main
 
 import (
 	"fmt"
@@ -49,7 +49,7 @@ func main() {
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
 	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
 
-	http.HandleFunc("/v1/users/login/", userHandler.Login())
+	http.HandleFunc("/v1/users/login", userHandler.Login())
 	http.HandleFunc("/v1/users/", userHandler.UserHandler)
 	http.HandleFunc("/v1/newsfeed/", newsFeedHandler.GetNewsfeed())
 	http.HandleFunc("/v1/posts/", postHandler.PostHandler)
