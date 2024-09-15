@@ -10,6 +10,7 @@ import (
 	"news-feed/internal/storage"
 	"news-feed/pkg/config"
 	"news-feed/pkg/logger"
+	"time"
 )
 
 func main() {
@@ -49,6 +50,13 @@ func main() {
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
 	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
 
+	// Populate the Bloom filter
+	err = userService.InitializeBloomFilter()
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Failed to initialize Bloom Filter: %v", err))
+		return
+	}
+
 	http.HandleFunc("/v1/users/login", userHandler.Login())
 	http.HandleFunc("/v1/users/", userHandler.UserHandler)
 	http.HandleFunc("/v1/newsfeed/", newsFeedHandler.GetNewsfeed())
@@ -61,5 +69,7 @@ func main() {
 	err = http.ListenAndServe(addr, nil)
 	if err != nil {
 		logger.LogError(err.Error())
+		return
 	}
+	go userService.PeriodicallyRefreshBloomFilter(1 * time.Hour)
 }

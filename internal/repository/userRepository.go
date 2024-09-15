@@ -15,6 +15,7 @@ type UserRepositoryInterface interface {
 	GetByUserName(userName string) (entity.User, error)
 	CreateUser(user entity.User) error
 	UpdateUser(user entity.User) error
+	GetAllUserNames() ([]string, error)
 }
 
 // UserRepository is a concrete implementation of UserRepositoryInterface.
@@ -34,6 +35,7 @@ func (r *UserRepository) GetByUserName(userName string) (entity.User, error) {
 	)
 	if err != nil {
 		if errors.Is(err, sql.ErrNoRows) {
+			logger.LogError(fmt.Sprintf("User not found"))
 			return user, fmt.Errorf("user not found")
 		}
 		logger.LogError(fmt.Sprintf("error getting user: %v", err))
@@ -83,4 +85,46 @@ func (r *UserRepository) UpdateUser(user entity.User) error {
 	updateQuery := "UPDATE user SET" + " " + strings.Join(updateFields, ", ") + " WHERE user_name = ?"
 	_, err := r.db.Exec(updateQuery, args...)
 	return err
+}
+
+func (r *UserRepository) GetAllUserNames() ([]string, error) {
+	query := `SELECT user_name FROM user`
+
+	// Execute the query
+	rows, err := r.db.Query(query)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error executing query to get all usernames: %v", err))
+		return nil, fmt.Errorf("could not execute query: %v", err)
+	}
+	defer func(rows *sql.Rows) {
+		err := rows.Close()
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Error closing rows: %v", err))
+			return
+		}
+	}(rows)
+
+	// Slice to hold the usernames
+	var userNames []string
+
+	// Iterate over the rows
+	for rows.Next() {
+		var username string
+		// Scan the result into the username variable
+		if err := rows.Scan(&username); err != nil {
+			logger.LogError(fmt.Sprintf("Error scanning username: %v", err))
+			return nil, fmt.Errorf("could not scan username: %v", err)
+		}
+		// Append the username to the slice
+		userNames = append(userNames, username)
+	}
+
+	// Check if any errors occurred during the iteration
+	if err := rows.Err(); err != nil {
+		logger.LogError(fmt.Sprintf("Error during rows iteration: %v", err))
+		return nil, fmt.Errorf("error iterating rows: %v", err)
+	}
+
+	// Return the slice of usernames
+	return userNames, nil
 }
