@@ -34,12 +34,10 @@ func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 	parts := strings.Split(strings.TrimSuffix(path, "/"), "/")
 
-	if len(parts) < 3 || parts[1] != "posts" {
+	if len(parts) < 3 || parts[2] != "posts" {
 		http.NotFound(w, r)
 		return
 	}
-
-	postId := parts[2] // This will be used for paths like /v1/posts/{postId}/
 
 	switch r.Method {
 	case http.MethodGet:
@@ -50,26 +48,26 @@ func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case http.MethodPost:
-		if len(parts) == 3 && postId == "" {
-			middleware.JWTAuthMiddleware()(h.CreatePost())
-		} else if len(parts) == 4 && parts[3] == "comments" {
-			middleware.JWTAuthMiddleware()(h.CommentOnPost())
-		} else if len(parts) == 4 && parts[3] == "like" {
-			middleware.JWTAuthMiddleware()(h.LikePost())
+		if len(parts) == 3 {
+			middleware.JWTAuthMiddleware(h.CreatePost()).ServeHTTP(w, r)
+		} else if len(parts) == 5 && parts[4] == "comments" {
+			middleware.JWTAuthMiddleware(h.CommentOnPost()).ServeHTTP(w, r)
+		} else if len(parts) == 5 && parts[4] == "likes" {
+			middleware.JWTAuthMiddleware(h.LikePost()).ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 
 	case http.MethodPut:
 		if len(parts) == 3 {
-			middleware.JWTAuthMiddleware()(h.EditPost())
+			middleware.JWTAuthMiddleware(h.EditPost()).ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 
 	case http.MethodDelete:
 		if len(parts) == 3 {
-			middleware.JWTAuthMiddleware()(h.DeletePost())
+			middleware.JWTAuthMiddleware(h.DeletePost()).ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
@@ -106,8 +104,15 @@ func (h *PostHandler) CreatePost() http.HandlerFunc {
 		// Create a unique filename for the image if provided
 		imageFileName := h.generateUniqueFileName()
 
+		// Retrieve the user ID from the context
+		userID, ok := r.Context().Value("userID").(int)
+		if !ok {
+			http.Error(w, "User ID not found in context", http.StatusInternalServerError)
+			return
+		}
+
 		// Call the CreatePost service method
-		msg, isSuccess, errCode := h.postService.CreatePost(text, imageFileName, imageFile)
+		msg, isSuccess, errCode := h.postService.CreatePost(text, imageFileName, imageFile, userID)
 
 		// Prepare the response
 		response := map[string]interface{}{

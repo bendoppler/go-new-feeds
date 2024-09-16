@@ -29,7 +29,7 @@ func (h *UserHandler) UserHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		h.Signup()
 	case http.MethodPut:
-		middleware.JWTAuthMiddleware()(h.EditProfile())
+		middleware.JWTAuthMiddleware(h.EditProfile()).ServeHTTP(w, r)
 	default:
 		http.Error(w, "Method not allowed", http.StatusMethodNotAllowed)
 	}

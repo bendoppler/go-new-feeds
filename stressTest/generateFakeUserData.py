@@ -23,6 +23,7 @@ config = {
 fake = Faker()
 existing_usernames = set()
 
+
 def generate_unique_user_name():
     while True:
         user_name = fake.user_name()
@@ -30,20 +31,22 @@ def generate_unique_user_name():
             existing_usernames.add(user_name)
             return user_name
 
+
 def generate_user_data(number):
     """Generates fake user data."""
     password = fake.password(length=12)
     salt = fake.word()
     return (
-            hash_password(password, salt),  # hashed_password
-            salt,  # salt
-            fake.first_name(),  # first_name
-            fake.last_name(),  # last_name
-            fake.date_of_birth(minimum_age=18, maximum_age=90).today(),  # dob
-            fake.email(),  # email
-            base64_encode_number(number),
-            password
-        )
+        hash_password(password, salt),  # hashed_password
+        salt,  # salt
+        fake.first_name(),  # first_name
+        fake.last_name(),  # last_name
+        fake.date_of_birth(minimum_age=18, maximum_age=90).today(),  # dob
+        fake.email(),  # email
+        base64_encode_number(number),
+        password
+    )
+
 
 def hash_password(password: str, salt: str) -> str:
     # Combine the password and salt
@@ -63,6 +66,7 @@ def hash_password(password: str, salt: str) -> str:
 
     return hash_base64
 
+
 def insert_users(lowerBound, upperBound, batch_size=100000):
     """Inserts `num_users` into the user table."""
     conn = mysql.connector.connect(**config)
@@ -77,7 +81,7 @@ def insert_users(lowerBound, upperBound, batch_size=100000):
         user_writer = csv.writer(csvfile)
         user_writer.writerow(['username', 'password'])
         batch = []
-        for (num, progress) in zip(range(lowerBound, upperBound+1, 1), tqdm(range(lowerBound, upperBound+1, 1))):
+        for (num, progress) in zip(range(lowerBound, upperBound + 1, 1), tqdm(range(lowerBound, upperBound + 1, 1))):
             user_data = generate_user_data(num)
             batch.append(user_data[:-1])  # Exclude password for DB insertion
             user_writer.writerow(user_data[6:8])  # Write username and password to CSV
@@ -90,6 +94,7 @@ def insert_users(lowerBound, upperBound, batch_size=100000):
             conn.commit()
     cursor.close()
     conn.close()
+
 
 def base64_encode_number(number: int) -> str:
     return str(number)

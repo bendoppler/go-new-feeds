@@ -6,10 +6,11 @@ import (
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
 	"news-feed/internal/storage"
+	"news-feed/pkg/logger"
 )
 
 type PostServiceInterface interface {
-	CreatePost(text string, imageFileName string, imageFile io.Reader) (string, bool, string)
+	CreatePost(text string, imageFileName string, imageFile io.Reader, userID int) (string, bool, string)
 	GetPost(postID int) (entity.Post, error)
 	EditPost(post entity.Post) error
 	DeletePost(postID int) error
@@ -23,7 +24,7 @@ type PostService struct {
 	storage  storage.MinioStorageInterface
 }
 
-func (s *PostService) CreatePost(text string, imageFileName string, imageFile io.Reader) (string, bool, string) {
+func (s *PostService) CreatePost(text string, imageFileName string, imageFile io.Reader, userID int) (string, bool, string) {
 	var imageURL string
 	if imageFile != nil {
 		var err error
@@ -36,10 +37,12 @@ func (s *PostService) CreatePost(text string, imageFileName string, imageFile io
 	post := entity.Post{
 		ContentText:      text,
 		ContentImagePath: imageURL,
+		UserID:           userID,
 	}
 
 	err := s.postRepo.CreatePost(post)
 	if err != nil {
+		logger.LogError(fmt.Sprintf("Failed to create post: %v", err))
 		return "Failed to create post", false, "DB_ERROR"
 	}
 

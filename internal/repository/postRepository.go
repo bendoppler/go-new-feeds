@@ -25,8 +25,7 @@ type PostRepository struct {
 func (r *PostRepository) CreatePost(post entity.Post) error {
 	_, err := r.db.Exec(
 		`
-		INSERT INTO post (content_text, content_image_path, user_id) 
-		VALUES (?, ?, ?)`,
+		INSERT INTO post (content_text, content_image_path, fk_user_id) VALUES (?, ?, ?)`,
 		post.ContentText, post.ContentImagePath, post.UserID,
 	)
 	return err

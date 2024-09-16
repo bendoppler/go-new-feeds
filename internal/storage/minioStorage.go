@@ -58,7 +58,7 @@ func (s *MinioStorage) UploadFile(fileName string, file io.Reader) (string, erro
 		return "", fmt.Errorf("could not upload file: %w", err)
 	}
 
-	fileURL := fmt.Sprintf("https://%s/%s/%s", s.client.EndpointURL(), s.bucket, fileName)
+	fileURL := fmt.Sprintf("http://localhost:9000/%s/%s", s.bucket, fileName)
 	return fileURL, nil
 }
 
