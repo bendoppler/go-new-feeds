@@ -2,8 +2,8 @@ package model
 
 // CreatePostRequest represents the request payload for creating a new post.
 type CreatePostRequest struct {
-	Text  string `json:"text"`
-	Image string `json:"image"` // URL or path to the image
+	Text     string `json:"text"`
+	HasImage bool   `json:"hasImage"`
 }
 
 // EditPostRequest represents the request payload for editing an existing post.

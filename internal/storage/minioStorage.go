@@ -7,10 +7,13 @@ import (
 	"github.com/minio/minio-go/v7/pkg/credentials"
 	"io"
 	"log"
+	"news-feed/pkg/logger"
+	"time"
 )
 
 type MinioStorageInterface interface {
 	UploadFile(fileName string, file io.Reader) (string, error)
+	GenerateFileURL(fileName string) (string, error)
 	GetFileURL(fileName string) string
 }
 
@@ -58,12 +61,22 @@ func (s *MinioStorage) UploadFile(fileName string, file io.Reader) (string, erro
 		return "", fmt.Errorf("could not upload file: %w", err)
 	}
 
-	fileURL := fmt.Sprintf("http://localhost:9000/%s/%s", s.bucket, fileName)
+	fileURL := fmt.Sprintf("%s/%s/%s", s.client.EndpointURL(), s.bucket, fileName)
 	return fileURL, nil
+}
+
+func (s *MinioStorage) GenerateFileURL(fileName string) (string, error) {
+	expires := time.Minute * 15
+	preSignedURL, err := s.client.PresignedPutObject(context.Background(), s.bucket, fileName, expires)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when generate pre signed url %v", err))
+		return "", err
+	}
+	return preSignedURL.String(), nil
 }
 
 func (s *MinioStorage) GetFileURL(fileName string) string {
 	// Generate a pre-signed URL for the file
-	objectURL := fmt.Sprintf("https://%s/%s/%s", s.client.EndpointURL(), s.bucket, fileName)
+	objectURL := fmt.Sprintf("%s/%s/%s", s.client.EndpointURL(), s.bucket, fileName)
 	return objectURL
 }

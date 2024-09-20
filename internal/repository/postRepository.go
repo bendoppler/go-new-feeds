@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"news-feed/internal/entity"
+	"news-feed/pkg/logger"
 )
 
 type PostRepositoryInterface interface {
@@ -28,6 +29,9 @@ func (r *PostRepository) CreatePost(post entity.Post) error {
 		INSERT INTO post (content_text, content_image_path, fk_user_id) VALUES (?, ?, ?)`,
 		post.ContentText, post.ContentImagePath, post.UserID,
 	)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error while inserting new post: %v", err))
+	}
 	return err
 }
 

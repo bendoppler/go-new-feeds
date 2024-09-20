@@ -58,10 +58,10 @@ func main() {
 	}
 
 	http.HandleFunc("/v1/users/login", userHandler.Login())
-	http.HandleFunc("/v1/users/", userHandler.UserHandler)
-	http.HandleFunc("/v1/newsfeed/", newsFeedHandler.GetNewsfeed())
-	http.HandleFunc("/v1/posts/", postHandler.PostHandler)
-	http.HandleFunc("/v1/friends/", friendsHandler.FriendsHandler)
+	http.HandleFunc("/v1/users", userHandler.UserHandler)
+	http.HandleFunc("/v1/newsfeed", newsFeedHandler.GetNewsfeed())
+	http.HandleFunc("/v1/posts", postHandler.PostHandler)
+	http.HandleFunc("/v1/friends", friendsHandler.FriendsHandler)
 
 	// Start the server
 	addr := ":" + cfg.AppPort

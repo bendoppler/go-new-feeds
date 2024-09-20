@@ -2,15 +2,14 @@ package handler
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/mux"
-	"mime/multipart"
 	"net/http"
 	"news-feed/internal/api/model"
 	"news-feed/internal/entity"
 	"news-feed/internal/service"
+	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"strconv"
 	"strings"
@@ -50,9 +49,9 @@ func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
 	case http.MethodPost:
 		if len(parts) == 3 {
 			middleware.JWTAuthMiddleware(h.CreatePost()).ServeHTTP(w, r)
-		} else if len(parts) == 5 && parts[4] == "comments" {
+		} else if len(parts) == 4 && parts[3] == "comments" {
 			middleware.JWTAuthMiddleware(h.CommentOnPost()).ServeHTTP(w, r)
-		} else if len(parts) == 5 && parts[4] == "likes" {
+		} else if len(parts) == 4 && parts[3] == "likes" {
 			middleware.JWTAuthMiddleware(h.LikePost()).ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
@@ -79,50 +78,41 @@ func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
 
 func (h *PostHandler) CreatePost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		// Parse form data
-		err := r.ParseMultipartForm(10 << 20) // Limit to 10 MB
-		if err != nil {
-			http.Error(w, "Failed to parse form", http.StatusBadRequest)
+		// Parse the JSON request body
+		var request model.CreatePostRequest
+		if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+			logger.LogError(fmt.Sprintf("Failed to decode JSON: %v", err))
+			http.Error(w, "Invalid request payload", http.StatusBadRequest)
 			return
 		}
-
-		// Retrieve text and image file from the form
-		text := r.FormValue("text")
-		imageFile, _, err := r.FormFile("image")
-		if err != nil && !errors.Is(err, http.ErrMissingFile) {
-			http.Error(w, "Failed to retrieve file", http.StatusBadRequest)
-			return
-		}
-		defer func(imageFile multipart.File) {
-			err := imageFile.Close()
-			if err != nil {
-				fmt.Printf("Failed to close image: %f\n", err)
-				return
-			}
-		}(imageFile)
-
-		// Create a unique filename for the image if provided
-		imageFileName := h.generateUniqueFileName()
 
 		// Retrieve the user ID from the context
 		userID, ok := r.Context().Value("userID").(int)
 		if !ok {
+			logger.LogError(fmt.Sprintf("User ID not found int context"))
 			http.Error(w, "User ID not found in context", http.StatusInternalServerError)
 			return
 		}
 
+		var imageFileName string
+		if request.HasImage {
+			imageFileName = h.generateUniqueFileName()
+		} else {
+			imageFileName = ""
+		}
+
 		// Call the CreatePost service method
-		msg, isSuccess, errCode := h.postService.CreatePost(text, imageFileName, imageFile, userID)
+		preSignedURL, isSuccess, err := h.postService.CreatePost(request.Text, imageFileName, userID)
 
 		// Prepare the response
 		response := map[string]interface{}{
-			"msg":        msg,
-			"is_success": isSuccess,
-			"err_code":   errCode,
+			"preSignedURL": preSignedURL,
+			"is_success":   isSuccess,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
+			logger.LogError(fmt.Sprintf("Failed to encode response: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
