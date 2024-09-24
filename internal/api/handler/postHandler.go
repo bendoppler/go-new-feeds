@@ -47,9 +47,7 @@ func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
 		}
 
 	case http.MethodPost:
-		if len(parts) == 3 {
-			middleware.JWTAuthMiddleware(h.CreatePost()).ServeHTTP(w, r)
-		} else if len(parts) == 4 && parts[3] == "comments" {
+		if len(parts) == 4 && parts[3] == "comments" {
 			middleware.JWTAuthMiddleware(h.CommentOnPost()).ServeHTTP(w, r)
 		} else if len(parts) == 4 && parts[3] == "likes" {
 			middleware.JWTAuthMiddleware(h.LikePost()).ServeHTTP(w, r)

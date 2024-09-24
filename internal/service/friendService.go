@@ -6,7 +6,7 @@ import (
 )
 
 type FriendsServiceInterface interface {
-	GetFriends(userID int) ([]entity.User, error)
+	GetFriends(userID int, limit int, cursor int) ([]entity.User, int, error)
 	FollowUser(currentUserID int, followedUserID int) (string, error)
 	UnfollowUser(currentUserID int, unfollowedUserID int) (string, error)
 	GetUserPosts(userID int) ([]entity.Post, error)
@@ -18,8 +18,8 @@ type FriendsService struct {
 }
 
 // GetFriends retrieves the list of friends for a user.
-func (s *FriendsService) GetFriends(userID int) ([]entity.User, error) {
-	return s.friendsRepo.GetFriends(userID)
+func (s *FriendsService) GetFriends(userID int, limit int, cursor int) ([]entity.User, int, error) {
+	return s.friendsRepo.GetFriends(userID, limit, cursor)
 }
 
 // FollowUser follows a user and returns a message.
