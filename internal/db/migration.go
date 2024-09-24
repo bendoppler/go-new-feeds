@@ -23,7 +23,8 @@ func Migrate(db *sql.DB) error {
 			last_name VARCHAR(255) NOT NULL,
 			dob DATE NOT NULL,
 			email VARCHAR(255) NOT NULL,
-			user_name VARCHAR(255) UNIQUE NOT NULL
+			user_name VARCHAR(255) UNIQUE NOT NULL,
+			INDEX idx_user_name (user_name)
 		);`,
 
 		`CREATE TABLE IF NOT EXISTS post (

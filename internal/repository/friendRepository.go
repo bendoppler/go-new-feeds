@@ -60,16 +60,31 @@ func (r *FriendsRepository) GetFriends(userID int, limit int, cursor int) ([]ent
 // FollowUser follows a user.
 func (r *FriendsRepository) FollowUser(currentUserID int, followedUserID int) error {
 	// This example assumes you want to follow user ID 2, modify accordingly
-	_, err := r.db.Exec(
+	result, err := r.db.Exec(
 		"INSERT INTO user_user (fk_user_id, fk_follower_id) VALUES (?, ?)", currentUserID, followedUserID,
 	)
+
+	rows, err := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user %d is already followed", followedUserID)
+	}
+	if err != nil {
+		return err
+	}
 	return err
 }
 
 // UnfollowUser unfollows a user.
 func (r *FriendsRepository) UnfollowUser(currentUserID int, unfollowedUserID int) error {
-	_, err := r.db.Exec(
+	result, err := r.db.Exec(
 		"DELETE FROM user_user WHERE fk_user_id = ? AND fk_follower_id = ?", currentUserID, unfollowedUserID,
 	)
+	rows, err := result.RowsAffected()
+	if rows == 0 {
+		return fmt.Errorf("user %d is already unfollowed", unfollowedUserID)
+	}
+	if err != nil {
+		return err
+	}
 	return err
 }

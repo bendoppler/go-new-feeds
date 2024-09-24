@@ -77,6 +77,16 @@ func main() {
 	http.HandleFunc("v1/posts/", postHandler.PostHandler)
 	http.HandleFunc("/v1/friends/", friendsHandler.FriendsHandler)
 
+	// Catch-all handler for unhandled endpoints
+	http.HandleFunc(
+		"/", func(w http.ResponseWriter, r *http.Request) {
+			// Log the unhandled endpoint
+			logger.LogWarning(fmt.Sprintf("Unhandled endpoint: %s %s", r.Method, r.URL.Path))
+			// Return a 404 Not Found response
+			http.Error(w, "404 Not Found: Endpoint does not exist", http.StatusNotFound)
+		},
+	)
+
 	// Start the server
 	addr := ":" + cfg.AppPort
 	logger.LogInfo(fmt.Sprintf("Starting server on %s", addr))
