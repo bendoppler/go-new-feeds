@@ -11,6 +11,7 @@ import (
 	"news-feed/internal/storage"
 	"news-feed/pkg/config"
 	"news-feed/pkg/logger"
+	"news-feed/pkg/middleware"
 	"time"
 )
 
@@ -46,7 +47,7 @@ func main() {
 	postService := serviceFactory.CreatePostService(postRepo, minioStorage)
 	postHandler := handlerFactory.CreatePostHandler(postService)
 	friendRepo := repositoryFactory.CreateFriendRepository(mySQLDB)
-	friendService := serviceFactory.CreateFriendsService(friendRepo, postRepo)
+	friendService := serviceFactory.CreateFriendsService(friendRepo, postRepo, userRepo)
 	friendsHandler := handlerFactory.CreateFriendsHandler(friendService)
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
 	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
@@ -72,8 +73,19 @@ func main() {
 	http.HandleFunc("/v1/users/login", userHandler.Login())
 	http.HandleFunc("/v1/users", userHandler.UserHandler)
 	http.HandleFunc("/v1/newsfeed", newsFeedHandler.GetNewsfeed())
-	http.HandleFunc("/v1/posts", postHandler.PostHandler)
-	http.HandleFunc("/v1/friends", friendsHandler.FriendsHandler)
+	http.HandleFunc("/v1/posts", middleware.JWTAuthMiddleware(postHandler.CreatePost()).ServeHTTP)
+	http.HandleFunc("v1/posts/", postHandler.PostHandler)
+	http.HandleFunc("/v1/friends/", friendsHandler.FriendsHandler)
+
+	// Catch-all handler for unhandled endpoints
+	http.HandleFunc(
+		"/", func(w http.ResponseWriter, r *http.Request) {
+			// Log the unhandled endpoint
+			logger.LogWarning(fmt.Sprintf("Unhandled endpoint: %s %s", r.Method, r.URL.Path))
+			// Return a 404 Not Found response
+			http.Error(w, "404 Not Found: Endpoint does not exist", http.StatusNotFound)
+		},
+	)
 
 	// Start the server
 	addr := ":" + cfg.AppPort

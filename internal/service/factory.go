@@ -9,7 +9,10 @@ import (
 type ServiceFactoryInterface interface {
 	CreateUserService(userRepo repository.UserRepositoryInterface) UserServiceInterface
 	CreatePostService(repo repository.PostRepositoryInterface, storage storage.MinioStorageInterface) PostServiceInterface
-	CreateFriendsService(friendsRepo repository.FriendsRepositoryInterface, postRepo repository.PostRepositoryInterface) FriendsServiceInterface
+	CreateFriendsService(
+		friendsRepo repository.FriendsRepositoryInterface,
+		postRepo repository.PostRepositoryInterface,
+		userRepo repository.UserRepositoryInterface) FriendsServiceInterface
 	CreateNewsFeedService(postRepo repository.PostRepositoryInterface) NewsFeedServiceInterface
 }
 
@@ -23,8 +26,11 @@ func (*ServiceFactory) CreatePostService(repo repository.PostRepositoryInterface
 	return &PostService{postRepo: repo, storage: storage}
 }
 
-func (*ServiceFactory) CreateFriendsService(friendsRepo repository.FriendsRepositoryInterface, postRepo repository.PostRepositoryInterface) FriendsServiceInterface {
-	return &FriendsService{friendsRepo: friendsRepo, postRepo: postRepo}
+func (*ServiceFactory) CreateFriendsService(
+	friendsRepo repository.FriendsRepositoryInterface,
+	postRepo repository.PostRepositoryInterface,
+	userRepo repository.UserRepositoryInterface) FriendsServiceInterface {
+	return &FriendsService{friendsRepo: friendsRepo, postRepo: postRepo, redisClient: cache.GetRedisClient(), userRepo: userRepo}
 }
 
 func (*ServiceFactory) CreateNewsFeedService(postRepo repository.PostRepositoryInterface) NewsFeedServiceInterface {
