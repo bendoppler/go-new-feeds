@@ -7,7 +7,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
-	"github.com/go-redis/redis/v8"
+	"github.com/redis/go-redis/v9"
 	"log"
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
@@ -21,7 +21,16 @@ type UserServiceInterface interface {
 	Login(username, password string) (string, error)
 	Signup(user entity.User) (string, error)
 	EditProfile(user entity.User) error
+	InitializeBloomFilter() error
+	PeriodicallyRefreshBloomFilter(interval time.Duration)
 }
+
+const (
+	// Batch size for processing
+	batchSize = 1000
+	// Number of worker goroutines
+	numWorkers = 10
+)
 
 // UserService is a concrete implementation of UserServiceInterface.
 type UserService struct {
@@ -43,6 +52,14 @@ func (s *UserService) Signup(user entity.User) (string, error) {
 	if err != nil {
 		return "", err
 	}
+
+	// Add the user to the Bloom filter
+	err = s.redisClient.BFAdd(context.Background(), "users_bloom", user.Username).Err()
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when add user to bloom filter: %s", err.Error()))
+		return "", err
+	}
+
 	// Generate JWT
 	jwtToken, err := middleware.GenerateJWT(string(rune(user.ID)))
 	if err != nil {
@@ -59,6 +76,18 @@ func (s *UserService) Signup(user entity.User) (string, error) {
 }
 
 func (s *UserService) Login(username, password string) (string, error) {
+	// Check if the user might exist using the Bloom filter
+	userExists, err := s.redisClient.BFExists(context.Background(), "users_bloom", username).Result()
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error when checking bloom filter: %v", err))
+	}
+
+	// If the Bloom filter indicates that the user doesn't exist
+	if !userExists && errors.Is(err, redis.Nil) {
+		logger.LogError(fmt.Sprintf("User %s does not exist (Bloom filter)", username))
+		return "", fmt.Errorf("user does not exist")
+	}
+
 	// Define the Redis key for the user
 	redisKey := fmt.Sprintf("user:%s", username)
 
@@ -66,18 +95,18 @@ func (s *UserService) Login(username, password string) (string, error) {
 	cachedUserData, err := s.redisClient.HGetAll(context.Background(), redisKey).Result()
 	if err != nil {
 		if errors.Is(err, redis.Nil) || len(cachedUserData) == 0 {
-			// User not in cache, fetch from DB and cache it
-			localCachedUser, s2, err2 := s.getUserFromDBAndCache(username)
-			if err2 != nil {
-				return s2, err2
-			}
-			cachedUserData = map[string]string{
-				"hashedPassword": localCachedUser.HashedPassword,
-				"salt":           localCachedUser.Salt,
-			}
+			logger.LogInfo(fmt.Sprintf("User %s does not exist in cache", username))
 		} else {
 			logger.LogError(fmt.Sprintf("Error when getting user data from Redis: %v", err))
-			return "", fmt.Errorf("could not retrieve user data from Redis: %v", err)
+		}
+		// User not in cache, fetch from DB and cache it
+		localCachedUser, s2, err2 := s.getUserFromDBAndCache(username)
+		if err2 != nil {
+			return s2, err2
+		}
+		cachedUserData = map[string]string{
+			"hashedPassword": localCachedUser.HashedPassword,
+			"salt":           localCachedUser.Salt,
 		}
 	}
 
@@ -110,6 +139,85 @@ func (s *UserService) Login(username, password string) (string, error) {
 	return jwtToken, nil
 }
 
+// EditProfile updates a user's profile.
+func (s *UserService) EditProfile(user entity.User) error {
+	existingUser, err := s.userRepo.GetByUserName(user.Username)
+	if err != nil {
+		return err
+	}
+	if (existingUser == entity.User{}) {
+		return fmt.Errorf("user does not exist")
+	}
+	return s.userRepo.UpdateUser(user)
+}
+
+// InitializeBloomFilter initializes the Bloom filter using worker and batch processing
+func (s *UserService) InitializeBloomFilter() error {
+	// Get all usernames from the database
+	userNames, err := s.userRepo.GetAllUserNames()
+	if err != nil {
+		log.Printf("Error retrieving all usernames: %v", err)
+		return err
+	}
+
+	// Create a channel to send batches to workers
+	batchChan := make(chan []string, numWorkers)
+	done := make(chan struct{})
+
+	// Worker function
+	worker := func(id int, batchChan <-chan []string, done chan<- struct{}) {
+		for batch := range batchChan {
+			pipe := s.redisClient.Pipeline()
+			for _, username := range batch {
+				pipe.BFAdd(context.Background(), "users_bloom", username)
+			}
+			_, err := pipe.Exec(context.Background())
+			if err != nil {
+				logger.LogError(fmt.Sprintf("Worker %d: Error adding usernames to Bloom filter: %v", id, err))
+			}
+		}
+		done <- struct{}{}
+	}
+
+	// Start worker goroutines
+	for i := 0; i < numWorkers; i++ {
+		go worker(i, batchChan, done)
+	}
+
+	// Divide usernames into batches and send to workers
+	for i := 0; i < len(userNames); i += batchSize {
+		end := i + batchSize
+		if end > len(userNames) {
+			end = len(userNames)
+		}
+		batch := userNames[i:end]
+		batchChan <- batch
+	}
+	close(batchChan)
+
+	// Wait for all workers to complete
+	for i := 0; i < numWorkers; i++ {
+		<-done
+	}
+
+	logger.LogInfo("Successfully initialized Bloom filter with usernames")
+	return nil
+}
+
+func (s *UserService) PeriodicallyRefreshBloomFilter(interval time.Duration) {
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+
+	for range ticker.C {
+		err := s.InitializeBloomFilter()
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Error refreshing Bloom filter: %v", err))
+		}
+	}
+}
+
+// - MARK: Privates
+
 func (s *UserService) getUserFromDBAndCache(username string) (entity.User, string, error) {
 	// Cache miss, fetch user from the database
 	user, err := s.userRepo.GetByUserName(username)
@@ -132,18 +240,6 @@ func (s *UserService) getUserFromDBAndCache(username string) (entity.User, strin
 	}
 
 	return user, "", nil
-}
-
-// EditProfile updates a user's profile.
-func (s *UserService) EditProfile(user entity.User) error {
-	existingUser, err := s.userRepo.GetByUserName(user.Username)
-	if err != nil {
-		return err
-	}
-	if (existingUser == entity.User{}) {
-		return fmt.Errorf("user does not exist")
-	}
-	return s.userRepo.UpdateUser(user)
 }
 
 func generateSalt() string {

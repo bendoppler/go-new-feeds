@@ -20,15 +20,17 @@ services:
     environment:
       MYSQL_ROOT_PASSWORD: ${DB_PASSWORD}
       MYSQL_DATABASE: ${DB_NAME}
+    volumes:
+      - ./my.cnf:/etc/my.cnf
+      - db-data:/var/lib/mysql
     ports:
       - "3306:3306"
-    volumes:
-      - db-data:/var/lib/mysql
 
   redis:
-    image: redis:latest
+    image: redislabs/rebloom:latest
     ports:
       - "6379:6379"
+    command: redis-server --loadmodule /usr/lib/redis/modules/redisbloom.so
 
   minio:
     image: minio/minio:latest

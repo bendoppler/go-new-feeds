@@ -2,16 +2,13 @@ package cache
 
 import (
 	"context"
-	"fmt"
-	"github.com/go-redis/redis/v8"
 	"github.com/joho/godotenv"
+	"github.com/redis/go-redis/v9"
 	"log"
-	"os"
 	"time"
 )
 
 var redisClient *redis.Client
-var ctx = context.Background()
 
 func init() {
 	// Load environment variables from .env file
@@ -43,7 +40,7 @@ func newRedisClient() *redis.Client {
 	)
 
 	// Ping the Redis server to test connection
-	_, err := client.Ping(ctx).Result()
+	_, err := client.Ping(context.Background()).Result()
 	if err != nil {
 		log.Fatalf("Could not connect to Redis: %v", err)
 	}
