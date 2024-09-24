@@ -9,7 +9,7 @@ import (
 )
 
 type PostRepositoryInterface interface {
-	CreatePost(post entity.Post) error
+	CreatePost(post entity.Post) (*entity.Post, error)
 	GetPostByID(id int) (entity.Post, error)
 	UpdatePost(post entity.Post) error
 	DeletePost(id int) error
@@ -23,16 +23,41 @@ type PostRepository struct {
 	db *sql.DB
 }
 
-func (r *PostRepository) CreatePost(post entity.Post) error {
-	_, err := r.db.Exec(
+func (r *PostRepository) CreatePost(post entity.Post) (*entity.Post, error) {
+	// Insert the post without using RETURNING
+	result, err := r.db.Exec(
 		`
 		INSERT INTO post (content_text, content_image_path, fk_user_id) VALUES (?, ?, ?)`,
 		post.ContentText, post.ContentImagePath, post.UserID,
 	)
 	if err != nil {
 		logger.LogError(fmt.Sprintf("Error while inserting new post: %v", err))
+		return nil, err
 	}
-	return err
+
+	// Retrieve the last inserted post ID using LAST_INSERT_ID()
+	postID, err := result.LastInsertId()
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error while retrieving last inserted ID: %v", err))
+		return nil, err
+	}
+
+	// Query the inserted post to get full details, including created_at
+	var createdPost entity.Post
+	err = r.db.QueryRow(
+		`SELECT id, content_text, content_image_path, fk_user_id, created_at 
+		FROM post WHERE id = ?`, postID,
+	).Scan(
+		&createdPost.ID, &createdPost.ContentText, &createdPost.ContentImagePath, &createdPost.UserID,
+		&createdPost.CreatedAt,
+	)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Error while retrieving created post: %v", err))
+		return nil, err
+	}
+
+	// Return the created post with all details
+	return &createdPost, nil
 }
 
 func (r *PostRepository) GetPostByID(id int) (entity.Post, error) {

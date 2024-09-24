@@ -23,7 +23,7 @@ func (*ServiceFactory) CreateUserService(userRepo repository.UserRepositoryInter
 }
 
 func (*ServiceFactory) CreatePostService(repo repository.PostRepositoryInterface, storage storage.MinioStorageInterface) PostServiceInterface {
-	return &PostService{postRepo: repo, storage: storage}
+	return &PostService{postRepo: repo, storage: storage, redisClient: cache.GetRedisClient()}
 }
 
 func (*ServiceFactory) CreateFriendsService(

@@ -100,12 +100,11 @@ func (h *PostHandler) CreatePost() http.HandlerFunc {
 		}
 
 		// Call the CreatePost service method
-		preSignedURL, isSuccess, err := h.postService.CreatePost(request.Text, imageFileName, userID)
+		createdPost, err := h.postService.CreatePost(request.Text, imageFileName, userID)
 
 		// Prepare the response
 		response := map[string]interface{}{
-			"preSignedURL": preSignedURL,
-			"is_success":   isSuccess,
+			"preSignedURL": createdPost.ContentImagePath,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
