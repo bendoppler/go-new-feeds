@@ -21,10 +21,15 @@ func init() {
 }
 
 func newRedisClient() *redis.Client {
+	password := os.Getenv("REDIS_PASSWORD")
+	redisHost := os.Getenv("REDIS_HOST")
+	redisPort := os.Getenv("REDIS_PORT")
+	addr := fmt.Sprintf("%s:%s", redisHost, redisPort)
 
 	client := redis.NewClient(
 		&redis.Options{
-			Addr:         "localhost:6379",
+			Addr:         addr,
+			Password:     password,
 			DB:           0,
 			PoolSize:     300,              // Further increase if needed
 			MinIdleConns: 50,               // Minimum idle connections
