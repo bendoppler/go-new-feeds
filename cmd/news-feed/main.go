@@ -47,7 +47,7 @@ func main() {
 	postService := serviceFactory.CreatePostService(postRepo, minioStorage)
 	postHandler := handlerFactory.CreatePostHandler(postService)
 	friendRepo := repositoryFactory.CreateFriendRepository(mySQLDB)
-	friendService := serviceFactory.CreateFriendsService(friendRepo, postRepo)
+	friendService := serviceFactory.CreateFriendsService(friendRepo, postRepo, userRepo)
 	friendsHandler := handlerFactory.CreateFriendsHandler(friendService)
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
 	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)

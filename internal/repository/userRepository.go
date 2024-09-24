@@ -16,11 +16,33 @@ type UserRepositoryInterface interface {
 	CreateUser(user entity.User) error
 	UpdateUser(user entity.User) error
 	GetAllUserNames() ([]string, error)
+	GetByUserID(userID int) (entity.User, error)
 }
 
 // UserRepository is a concrete implementation of UserRepositoryInterface.
 type UserRepository struct {
 	db *sql.DB
+}
+
+// GetByUserID retrieves a user by their user id.
+func (r *UserRepository) GetByUserID(userID int) (entity.User, error) {
+	query := `SELECT id, hashed_password, salt, first_name, last_name, email, user_name FROM user WHERE id = ?`
+	row := r.db.QueryRow(query, userID)
+
+	var user entity.User
+	err := row.Scan(
+		&user.ID, &user.HashedPassword, &user.Salt, &user.FirstName, &user.LastName, &user.Email,
+		&user.Username,
+	)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			logger.LogError(fmt.Sprintf("User not found"))
+			return user, fmt.Errorf("user not found")
+		}
+		logger.LogError(fmt.Sprintf("error getting user: %v", err))
+		return user, fmt.Errorf("error getting user: %v", err)
+	}
+	return user, nil
 }
 
 // GetByUserName retrieves a user by their username.
