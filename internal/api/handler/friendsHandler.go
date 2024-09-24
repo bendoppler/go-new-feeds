@@ -36,23 +36,23 @@ func (h *FriendsHandler) FriendsHandler(w http.ResponseWriter, r *http.Request) 
 	switch r.Method {
 	case http.MethodGet:
 		if len(parts) == 3 {
-			middleware.JWTAuthMiddleware()(h.GetFriends())
+			middleware.JWTAuthMiddleware(h.GetFriends()).ServeHTTP(w, r)
 		} else if len(parts) == 4 && parts[3] == "posts" {
-			middleware.JWTAuthMiddleware()(h.GetUserPosts())
+			middleware.JWTAuthMiddleware(h.GetUserPosts()).ServeHTTP(w, r)
 		} else {
 			http.NotFound(w, r)
 		}
 
 	case http.MethodPost:
 		if len(parts) == 3 {
-			middleware.JWTAuthMiddleware()(h.FollowUser())
+			middleware.JWTAuthMiddleware(h.FollowUser()).ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}
 
 	case http.MethodDelete:
 		if len(parts) == 3 {
-			middleware.JWTAuthMiddleware()(h.UnfollowUser())
+			middleware.JWTAuthMiddleware(h.UnfollowUser()).ServeHTTP(w, r)
 		} else {
 			http.Error(w, "Not Found", http.StatusNotFound)
 		}

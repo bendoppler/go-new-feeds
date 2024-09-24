@@ -6,10 +6,11 @@ import (
 	"news-feed/internal/entity"
 	"news-feed/internal/repository"
 	"news-feed/internal/storage"
+	"news-feed/pkg/logger"
 )
 
 type PostServiceInterface interface {
-	CreatePost(text string, imageFileName string, imageFile io.Reader) (string, bool, string)
+	CreatePost(text string, fileName string, userID int) (string, bool, error)
 	GetPost(postID int) (entity.Post, error)
 	EditPost(post entity.Post) error
 	DeletePost(postID int) error
@@ -23,27 +24,34 @@ type PostService struct {
 	storage  storage.MinioStorageInterface
 }
 
-func (s *PostService) CreatePost(text string, imageFileName string, imageFile io.Reader) (string, bool, string) {
-	var imageURL string
-	if imageFile != nil {
+func (s *PostService) CreatePost(text string, fileName string, userID int) (string, bool, error) {
+	var preSignedURL string
+	if text == "" {
+		logger.LogError("Cannot create post without text")
+		return "", false, nil
+	}
+	if fileName != "" {
 		var err error
-		imageURL, err = s.storage.UploadFile(imageFileName, imageFile)
+		preSignedURL, err = s.storage.GenerateFileURL(fileName)
 		if err != nil {
-			return "Failed to upload image", false, "UPLOAD_ERROR"
+			logger.LogError(fmt.Sprintf("Failed to generate pre signed url %v", err))
+			return "", false, err
 		}
 	}
 
 	post := entity.Post{
 		ContentText:      text,
-		ContentImagePath: imageURL,
+		ContentImagePath: fileName,
+		UserID:           userID,
 	}
 
 	err := s.postRepo.CreatePost(post)
 	if err != nil {
-		return "Failed to create post", false, "DB_ERROR"
+		logger.LogError(fmt.Sprintf("Failed to create post: %v", err))
+		return "", false, err
 	}
 
-	return "Post created successfully", true, ""
+	return preSignedURL, true, nil
 }
 
 func (s *PostService) UploadImage(fileName string, file io.Reader) (string, error) {

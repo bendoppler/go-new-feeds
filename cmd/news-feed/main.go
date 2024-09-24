@@ -3,6 +3,7 @@ package main
 import (
 	"fmt"
 	"net/http"
+	_ "net/http/pprof"
 	"news-feed/internal/api/handler"
 	"news-feed/internal/db"
 	"news-feed/internal/repository"
@@ -50,6 +51,17 @@ func main() {
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
 	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
 
+	go func() {
+		logger.LogInfo(fmt.Sprintf("Attempting to start pprof server"))
+		err := http.ListenAndServe("localhost:6060", nil)
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Error when run pprof: %v", err))
+			return
+		}
+		logger.LogInfo(fmt.Sprintf("Starting pprof server on localhost:6060"))
+	}()
+	go userService.PeriodicallyRefreshBloomFilter(1 * time.Hour)
+
 	// Populate the Bloom filter
 	err = userService.InitializeBloomFilter()
 	if err != nil {
@@ -58,10 +70,10 @@ func main() {
 	}
 
 	http.HandleFunc("/v1/users/login", userHandler.Login())
-	http.HandleFunc("/v1/users/", userHandler.UserHandler)
-	http.HandleFunc("/v1/newsfeed/", newsFeedHandler.GetNewsfeed())
-	http.HandleFunc("/v1/posts/", postHandler.PostHandler)
-	http.HandleFunc("/v1/friends/", friendsHandler.FriendsHandler)
+	http.HandleFunc("/v1/users", userHandler.UserHandler)
+	http.HandleFunc("/v1/newsfeed", newsFeedHandler.GetNewsfeed())
+	http.HandleFunc("/v1/posts", postHandler.PostHandler)
+	http.HandleFunc("/v1/friends", friendsHandler.FriendsHandler)
 
 	// Start the server
 	addr := ":" + cfg.AppPort
@@ -71,5 +83,4 @@ func main() {
 		logger.LogError(err.Error())
 		return
 	}
-	go userService.PeriodicallyRefreshBloomFilter(1 * time.Hour)
 }
