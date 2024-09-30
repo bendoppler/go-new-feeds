@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
+	_ "news-feed/docs"
 	"news-feed/internal/api/model"
 	"news-feed/internal/entity"
 	"news-feed/internal/service"
@@ -89,6 +90,18 @@ func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// CreatePost creates a new post.
+//
+// @Summary Create a new post
+// @Description Creates a new post with the provided details.
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Param request body model.CreatePostRequest true "Post data"
+// @Success 200 {object} map[string]string "success response"
+// @Failure 400 {object} string "Invalid request payload"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts [post]
 func (h *PostHandler) CreatePost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Parse the JSON request body
@@ -140,6 +153,18 @@ func (h *PostHandler) generateUniqueFileName() string {
 	return fmt.Sprintf("%s%s", uuidString, extension)
 }
 
+// GetPost retrieves a specific post by its ID.
+//
+// @Summary Get a specific post
+// @Description Retrieves a post by its ID.
+// @Tags posts
+// @Produce json
+// @Param post_id path int true "Post ID"
+// @Success 200 {object} entity.Post "Post data"
+// @Failure 400 {object} string "Invalid post ID"
+// @Failure 404 {object} string "Post not found"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id} [get]
 func (h *PostHandler) GetPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
@@ -167,6 +192,20 @@ func (h *PostHandler) GetPost() http.HandlerFunc {
 	}
 }
 
+// EditPost updates an existing post.
+//
+// @Summary Edit an existing post
+// @Description Updates an existing post by its ID.
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Param post_id path int true "Post ID"
+// @Param request body model.EditPostRequest true "Updated post data"
+// @Success 200 {object} map[string]string "success response"
+// @Failure 400 {object} string "Invalid post ID or request payload"
+// @Failure 404 {object} string "Post not found"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id} [put]
 func (h *PostHandler) EditPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
@@ -218,6 +257,17 @@ func (h *PostHandler) EditPost() http.HandlerFunc {
 	}
 }
 
+// DeletePost removes a post.
+//
+// @Summary Delete a post
+// @Description Deletes a post by its ID.
+// @Tags posts
+// @Param post_id path int true "Post ID"
+// @Success 200 {object} map[string]string "success message"
+// @Failure 400 {object} string "Invalid post ID"
+// @Failure 404 {object} string "Post not found"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id} [delete]
 func (h *PostHandler) DeletePost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
@@ -253,6 +303,19 @@ func (h *PostHandler) DeletePost() http.HandlerFunc {
 	}
 }
 
+// CommentOnPost adds a comment to a specific post.
+//
+// @Summary Comment on a post
+// @Description Adds a comment to the specified post.
+// @Tags posts
+// @Accept json
+// @Produce json
+// @Param post_id path int true "Post ID"
+// @Param request body model.CommentOnPostRequest true "Comment data"
+// @Success 200 {object} entity.Comment "Comment data"
+// @Failure 400 {object} string "Invalid post ID or request payload"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id}/comments [post]
 func (h *PostHandler) CommentOnPost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the current user ID from the request context (assumes middleware has set it)
@@ -295,6 +358,16 @@ func (h *PostHandler) CommentOnPost() http.HandlerFunc {
 	}
 }
 
+// LikePost allows a user to like a specific post.
+//
+// @Summary Like a post
+// @Description Allows a user to like the specified post.
+// @Tags posts
+// @Param post_id path int true "Post ID"
+// @Success 200 {object} map[string]string "success message"
+// @Failure 400 {object} string "Invalid post ID"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id}/likes [post]
 func (h *PostHandler) LikePost() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the current user ID from the request context (assumes middleware has set it)
@@ -330,7 +403,19 @@ func (h *PostHandler) LikePost() http.HandlerFunc {
 	}
 }
 
-// API: /v1/posts/{post_id}/comments?cursor={comment_id}&limit={limit}
+// GetComments retrieves comments for a specific post.
+//
+// @Summary Get comments for a post
+// @Description Retrieves comments for the specified post with pagination.
+// @Tags posts
+// @Produce json
+// @Param post_id path int true "Post ID"
+// @Param cursor query int false "Cursor for pagination"
+// @Param limit query int false "Limit for pagination"
+// @Success 200 {array} entity.Comment "List of comments"
+// @Failure 400 {object} string "Invalid post ID"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id}/comments [get]
 func (h *PostHandler) GetComments() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
@@ -382,7 +467,16 @@ func (h *PostHandler) GetComments() http.HandlerFunc {
 	}
 }
 
-// API: /v1/posts/{post_id}/likes?cursor={like_id}&limit={limit}
+// GetLikes retrieves likes for a specific post.
+//
+// @Summary Get likes for a post
+// @Description Retrieves likes for the specified post.
+// @Tags posts
+// @Param post_id path int true "Post ID"
+// @Success 200 {array} entity.Like "List of likes"
+// @Failure 400 {object} string "Invalid post ID"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id}/likes [get]
 func (h *PostHandler) GetLikes() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
@@ -439,6 +533,16 @@ func (h *PostHandler) GetLikes() http.HandlerFunc {
 	}
 }
 
+// GetLikesCount retrieves the count of likes for a specific post.
+//
+// @Summary Get likes count for a post
+// @Description Retrieves the total count of likes for the specified post.
+// @Tags posts
+// @Param post_id path int true "Post ID"
+// @Success 200 {object} map[string]int "Count of likes"
+// @Failure 400 {object} string "Invalid post ID"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/posts/{post_id}/likes/count [get]
 func (h *PostHandler) GetLikesCount() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")

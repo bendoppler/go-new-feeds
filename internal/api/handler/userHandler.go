@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	_ "news-feed/docs"
 	"news-feed/internal/api/model"
 	"news-feed/internal/entity"
 	"news-feed/internal/service"
@@ -35,6 +36,18 @@ func (h *UserHandler) UserHandler(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// Login handles user login.
+//
+// @Summary User login
+// @Description Authenticates a user and returns a token.
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param credentials body model.LoginRequest true "User credentials"
+// @Success 200 {object} map[string]string "JWT token"
+// @Failure 400 {object} string "Invalid request payload"
+// @Failure 401 {object} string "Unauthorized"
+// @Router /v1/users/login [post]
 func (h *UserHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var credentials model.LoginRequest
@@ -61,7 +74,18 @@ func (h *UserHandler) Login() http.HandlerFunc {
 	}
 }
 
-// Signup handles POST requests for user signup.
+// Signup handles user signup.
+//
+// @Summary User signup
+// @Description Registers a new user and returns a token.
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param signupRequest body model.SignupRequest true "New user signup information"
+// @Success 200 {object} map[string]string "JWT token"
+// @Failure 400 {object} string "Invalid request payload"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/users/signup [post]
 func (h *UserHandler) Signup() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var signupRequest model.SignupRequest
@@ -101,7 +125,18 @@ func (h *UserHandler) Signup() http.HandlerFunc {
 	}
 }
 
-// EditProfile handles PUT requests for editing user profile.
+// EditProfile handles editing user profile.
+//
+// @Summary Edit user profile
+// @Description Updates the user profile information.
+// @Tags users
+// @Accept json
+// @Produce json
+// @Param profileUpdate body model.ProfileUpdateRequest true "Profile update information"
+// @Success 200 {object} map[string]string "Profile updated successfully"
+// @Failure 400 {object} string "Invalid request payload"
+// @Failure 500 {object} string "Internal server error"
+// @Router /v1/users/profile [put]
 func (h *UserHandler) EditProfile() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		var profileUpdate model.ProfileUpdateRequest

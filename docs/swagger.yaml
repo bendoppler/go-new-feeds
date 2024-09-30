@@ -1,0 +1,658 @@
+basePath: /v1
+definitions:
+  entity.Comment:
+    properties:
+      content:
+        type: string
+      createdAt:
+        type: string
+      id:
+        type: integer
+      postID:
+        type: integer
+      userID:
+        type: integer
+    type: object
+  entity.Like:
+    properties:
+      createdAt:
+        type: string
+      postID:
+        type: integer
+      userID:
+        type: integer
+    type: object
+  entity.Post:
+    description: Represents a post created by a user in the news feed.
+    properties:
+      content_image_path:
+        type: string
+      content_text:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: integer
+      user_id:
+        type: integer
+    type: object
+  model.CommentOnPostRequest:
+    properties:
+      text:
+        type: string
+    type: object
+  model.CreatePostRequest:
+    description: Request payload for creating a new post in the news feed.
+    properties:
+      hasImage:
+        description: |-
+          HasImage indicates whether the post includes an image.
+          @example true
+        type: boolean
+      text:
+        description: |-
+          Text is the content of the post.
+          @example "This is a new post"
+        type: string
+    type: object
+  model.EditPostRequest:
+    properties:
+      hasImage:
+        type: boolean
+      text:
+        type: string
+    type: object
+  model.LoginRequest:
+    properties:
+      password:
+        type: string
+      user_name:
+        type: string
+    type: object
+  model.ProfileUpdateRequest:
+    properties:
+      birthday:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        type: string
+    type: object
+  model.SignupRequest:
+    properties:
+      birthday:
+        type: string
+      email:
+        type: string
+      first_name:
+        type: string
+      last_name:
+        type: string
+      password:
+        type: string
+      user_name:
+        type: string
+    type: object
+host: localhost:8080
+info:
+  contact:
+    email: support@news-feed.com
+    name: API Support
+    url: http://news-feed.com/support
+  description: This is a sample news feed server.
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+  termsOfService: http://news-feed.com/terms/
+  title: News Feed API
+  version: "1.0"
+paths:
+  /v1/friends/{user_id}:
+    delete:
+      consumes:
+      - application/json
+      description: Unfollow a user by providing the target user ID
+      parameters:
+      - description: Target User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Unfollow a user
+      tags:
+      - friends
+    get:
+      consumes:
+      - application/json
+      description: Get friends of the user by user ID
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: Cursor for pagination
+        in: query
+        name: cursor
+        type: integer
+      - description: Limit of results
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get a list of friends for a user
+      tags:
+      - friends
+    post:
+      consumes:
+      - application/json
+      description: Follow another user by providing the target user ID
+      parameters:
+      - description: Target User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Follow a user
+      tags:
+      - friends
+  /v1/friends/{user_id}/posts:
+    get:
+      consumes:
+      - application/json
+      description: Get posts made by a user's friends, with pagination
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: integer
+      - description: Cursor for pagination
+        in: query
+        name: cursor
+        type: integer
+      - description: Limit of results
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties: true
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Get posts for a user's friends
+      tags:
+      - friends
+  /v1/newsfeed:
+    get:
+      description: Get the latest posts from user's friends.
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of posts
+          schema:
+            items:
+              $ref: '#/definitions/entity.Post'
+            type: array
+        "500":
+          description: Internal server error
+          schema: {}
+      summary: Get news feed
+      tags:
+      - NewsFeed
+  /v1/posts:
+    post:
+      consumes:
+      - application/json
+      description: Creates a new post with the provided details.
+      parameters:
+      - description: Post data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CreatePostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success response
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Create a new post
+      tags:
+      - posts
+  /v1/posts/{post_id}:
+    delete:
+      description: Deletes a post by its ID.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: success message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid post ID
+          schema:
+            type: string
+        "404":
+          description: Post not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Delete a post
+      tags:
+      - posts
+    get:
+      description: Retrieves a post by its ID.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Post data
+          schema:
+            $ref: '#/definitions/entity.Post'
+        "400":
+          description: Invalid post ID
+          schema:
+            type: string
+        "404":
+          description: Post not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get a specific post
+      tags:
+      - posts
+    put:
+      consumes:
+      - application/json
+      description: Updates an existing post by its ID.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Updated post data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.EditPostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: success response
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid post ID or request payload
+          schema:
+            type: string
+        "404":
+          description: Post not found
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Edit an existing post
+      tags:
+      - posts
+  /v1/posts/{post_id}/comments:
+    get:
+      description: Retrieves comments for the specified post with pagination.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Cursor for pagination
+        in: query
+        name: cursor
+        type: integer
+      - description: Limit for pagination
+        in: query
+        name: limit
+        type: integer
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: List of comments
+          schema:
+            items:
+              $ref: '#/definitions/entity.Comment'
+            type: array
+        "400":
+          description: Invalid post ID
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get comments for a post
+      tags:
+      - posts
+    post:
+      consumes:
+      - application/json
+      description: Adds a comment to the specified post.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      - description: Comment data
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/model.CommentOnPostRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Comment data
+          schema:
+            $ref: '#/definitions/entity.Comment'
+        "400":
+          description: Invalid post ID or request payload
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Comment on a post
+      tags:
+      - posts
+  /v1/posts/{post_id}/likes:
+    get:
+      description: Retrieves likes for the specified post.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: List of likes
+          schema:
+            items:
+              $ref: '#/definitions/entity.Like'
+            type: array
+        "400":
+          description: Invalid post ID
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get likes for a post
+      tags:
+      - posts
+    post:
+      description: Allows a user to like the specified post.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: success message
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid post ID
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Like a post
+      tags:
+      - posts
+  /v1/posts/{post_id}/likes/count:
+    get:
+      description: Retrieves the total count of likes for the specified post.
+      parameters:
+      - description: Post ID
+        in: path
+        name: post_id
+        required: true
+        type: integer
+      responses:
+        "200":
+          description: Count of likes
+          schema:
+            additionalProperties:
+              type: integer
+            type: object
+        "400":
+          description: Invalid post ID
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Get likes count for a post
+      tags:
+      - posts
+  /v1/users/login:
+    post:
+      consumes:
+      - application/json
+      description: Authenticates a user and returns a token.
+      parameters:
+      - description: User credentials
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/model.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JWT token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            type: string
+        "401":
+          description: Unauthorized
+          schema:
+            type: string
+      summary: User login
+      tags:
+      - users
+  /v1/users/profile:
+    put:
+      consumes:
+      - application/json
+      description: Updates the user profile information.
+      parameters:
+      - description: Profile update information
+        in: body
+        name: profileUpdate
+        required: true
+        schema:
+          $ref: '#/definitions/model.ProfileUpdateRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: Profile updated successfully
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: Edit user profile
+      tags:
+      - users
+  /v1/users/signup:
+    post:
+      consumes:
+      - application/json
+      description: Registers a new user and returns a token.
+      parameters:
+      - description: New user signup information
+        in: body
+        name: signupRequest
+        required: true
+        schema:
+          $ref: '#/definitions/model.SignupRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: JWT token
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Invalid request payload
+          schema:
+            type: string
+        "500":
+          description: Internal server error
+          schema:
+            type: string
+      summary: User signup
+      tags:
+      - users
+swagger: "2.0"
