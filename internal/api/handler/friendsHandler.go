@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	_ "news-feed/docs"
 	"news-feed/internal/service"
 )
 
@@ -65,7 +66,18 @@ func (h *FriendsHandler) FriendsHandler(w http.ResponseWriter, r *http.Request) 
 }
 
 // GetFriends handles GET requests for retrieving a list of friends.
-// API: /v1/friends/{user_id}?cursor=12345&limit=10
+// @Summary Get a list of friends for a user
+// @Description Get friends of the user by user ID
+// @Tags friends
+// @Accept  json
+// @Produce  json
+// @Param   user_id  path     int true  "User ID"
+// @Param   cursor   query    int false "Cursor for pagination"
+// @Param   limit    query    int false "Limit of results"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /v1/friends/{user_id} [get]
 func (h *FriendsHandler) GetFriends() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
@@ -91,15 +103,12 @@ func (h *FriendsHandler) GetFriends() http.HandlerFunc {
 			}
 		}
 
-		//logger.LogInfo(fmt.Sprintf("Getting friends for user %d and cursor: %d", userID, cursor))
-
 		users, nextCursor, err := h.friendsService.GetFriends(userID, limit, cursor)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Get followers failed %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
-		//logger.LogInfo(fmt.Sprintf("User count: %v and next cursor: %v", len(users), nextCursor))
 
 		// Prepare the response including the nextCursor
 		response := struct {
@@ -121,6 +130,16 @@ func (h *FriendsHandler) GetFriends() http.HandlerFunc {
 }
 
 // FollowUser handles POST requests for following a user.
+// @Summary Follow a user
+// @Description Follow another user by providing the target user ID
+// @Tags friends
+// @Accept  json
+// @Produce  json
+// @Param   user_id  path     int true  "Target User ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /v1/friends/{user_id} [post]
 func (h *FriendsHandler) FollowUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the current user ID from the request context (assumes middleware has set it)
@@ -160,6 +179,16 @@ func (h *FriendsHandler) FollowUser() http.HandlerFunc {
 }
 
 // UnfollowUser handles DELETE requests for unfollowing a user.
+// @Summary Unfollow a user
+// @Description Unfollow a user by providing the target user ID
+// @Tags friends
+// @Accept  json
+// @Produce  json
+// @Param   user_id  path     int true  "Target User ID"
+// @Success 200 {object} map[string]string
+// @Failure 400 {object} map[string]string
+// @Failure 500 {object} map[string]string
+// @Router /v1/friends/{user_id} [delete]
 func (h *FriendsHandler) UnfollowUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the current user ID from the request context (assumes middleware has set it)
@@ -199,7 +228,18 @@ func (h *FriendsHandler) UnfollowUser() http.HandlerFunc {
 }
 
 // GetUserPosts handles GET requests for retrieving posts by a user.
-// API: /v1/friends/{user_id}/posts?cursor=12345&limit=10
+// @Summary Get posts for a user's friends
+// @Description Get posts made by a user's friends, with pagination
+// @Tags friends
+// @Accept  json
+// @Produce  json
+// @Param   user_id  path     int true  "User ID"
+// @Param   cursor   query    int false "Cursor for pagination"
+// @Param   limit    query    int false "Limit of results"
+// @Success 200 {object} map[string]interface{}
+// @Failure 400 {object} map[string]interface{}
+// @Failure 500 {object} map[string]interface{}
+// @Router /v1/friends/{user_id}/posts [get]
 func (h *FriendsHandler) GetUserPosts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		pathParts := strings.Split(r.URL.Path, "/")
