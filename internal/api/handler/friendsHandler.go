@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/gorilla/mux"
 	"news-feed/internal/service"
 )
 
@@ -200,23 +199,52 @@ func (h *FriendsHandler) UnfollowUser() http.HandlerFunc {
 }
 
 // GetUserPosts handles GET requests for retrieving posts by a user.
+// API: /v1/friends/{user_id}/posts?cursor=12345&limit=10
 func (h *FriendsHandler) GetUserPosts() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userID, err := strconv.Atoi(mux.Vars(r)["userId"])
+		pathParts := strings.Split(r.URL.Path, "/")
+		userID, err := strconv.Atoi(pathParts[3])
 		if err != nil {
+			logger.LogError(fmt.Sprintf("Invalid user id %v", err))
 			http.Error(w, "Invalid user ID", http.StatusBadRequest)
 			return
 		}
 
-		posts, err := h.friendsService.GetUserPosts(userID)
+		limit := 10
+		if l, err := strconv.Atoi(r.URL.Query().Get("limit")); err == nil {
+			limit = l
+		}
+
+		cursor := 0
+		if cursorStr := r.URL.Query().Get("cursor"); cursorStr != "" {
+			cursor, err = strconv.Atoi(cursorStr)
+			if err != nil {
+				logger.LogError(fmt.Sprintf("Invalid cursor %v", err))
+				http.Error(w, "Invalid cursor", http.StatusBadRequest)
+				return
+			}
+		}
+
+		posts, nextCursor, err := h.friendsService.GetUserPosts(userID, limit, cursor)
 		if err != nil {
+			logger.LogError(fmt.Sprintf("Get user posts failed %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
+		// Prepare the response including the nextCursor
+		response := struct {
+			Posts      []entity.Post `json:"posts"`
+			NextCursor int           `json:"next_cursor"`
+		}{
+			Posts:      posts,
+			NextCursor: nextCursor,
+		}
+
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(posts)
+		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
+			logger.LogError(fmt.Sprintf("Failed encode response: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}

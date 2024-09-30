@@ -44,7 +44,7 @@ func main() {
 	userService := serviceFactory.CreateUserService(userRepo)
 	userHandler := handlerFactory.CreateUserHandler(userService)
 	postRepo := repositoryFactory.CreatePostRepository(mySQLDB)
-	postService := serviceFactory.CreatePostService(postRepo, minioStorage)
+	postService := serviceFactory.CreatePostService(postRepo, minioStorage, userService)
 	postHandler := handlerFactory.CreatePostHandler(postService)
 	friendRepo := repositoryFactory.CreateFriendRepository(mySQLDB)
 	friendService := serviceFactory.CreateFriendsService(friendRepo, postRepo, userRepo)
@@ -74,7 +74,7 @@ func main() {
 	http.HandleFunc("/v1/users", userHandler.UserHandler)
 	http.HandleFunc("/v1/newsfeed", newsFeedHandler.GetNewsfeed())
 	http.HandleFunc("/v1/posts", middleware.JWTAuthMiddleware(postHandler.CreatePost()).ServeHTTP)
-	http.HandleFunc("v1/posts/", postHandler.PostHandler)
+	http.HandleFunc("/v1/posts/", postHandler.PostHandler)
 	http.HandleFunc("/v1/friends/", friendsHandler.FriendsHandler)
 
 	// Catch-all handler for unhandled endpoints

@@ -17,6 +17,7 @@ type UserRepositoryInterface interface {
 	UpdateUser(user entity.User) error
 	GetAllUserNames() ([]string, error)
 	GetByUserID(userID int) (entity.User, error)
+	GetUsers(userIDs []int) ([]entity.User, error)
 }
 
 // UserRepository is a concrete implementation of UserRepositoryInterface.
@@ -64,6 +65,61 @@ func (r *UserRepository) GetByUserName(userName string) (entity.User, error) {
 		return user, fmt.Errorf("error getting user: %v", err)
 	}
 	return user, nil
+}
+
+func (r *UserRepository) GetUsers(userIDs []int) ([]entity.User, error) {
+	// Convert userIDs slice to a comma-separated string for the SQL query
+	idPlaceholders := make([]string, len(userIDs))
+	for i := range userIDs {
+		idPlaceholders[i] = "?"
+	}
+
+	// Prepare the SQL query
+	query := fmt.Sprintf(
+		`
+        SELECT id, first_name, last_name, birthday, email, username
+        FROM users
+        WHERE id IN (%s)`, strings.Join(idPlaceholders, ","),
+	)
+
+	// Convert userIDs to interface{} slice for use with Query function
+	ids := make([]interface{}, len(userIDs))
+	for i, id := range userIDs {
+		ids[i] = id
+	}
+
+	// Execute the query
+	rows, err := r.db.Query(query, ids...)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	// Prepare a slice to hold the users
+	users := []entity.User{}
+
+	// Iterate over the result set
+	for rows.Next() {
+		var user entity.User
+		if err := rows.Scan(
+			&user.ID,
+			&user.FirstName,
+			&user.LastName,
+			&user.Birthday,
+			&user.Email,
+			&user.Username,
+		); err != nil {
+			return nil, err
+		}
+		users = append(users, user)
+	}
+
+	// Check for any errors encountered during iteration
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+
+	return users, nil
 }
 
 func (r *UserRepository) CreateUser(user entity.User) error {
