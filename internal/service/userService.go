@@ -23,6 +23,7 @@ type UserServiceInterface interface {
 	EditProfile(user entity.User) error
 	InitializeBloomFilter() error
 	PeriodicallyRefreshBloomFilter(interval time.Duration)
+	GetUsers(userIDs []int) ([]entity.User, error)
 }
 
 const (
@@ -214,6 +215,82 @@ func (s *UserService) PeriodicallyRefreshBloomFilter(interval time.Duration) {
 			logger.LogError(fmt.Sprintf("Error refreshing Bloom filter: %v", err))
 		}
 	}
+}
+
+func (s *UserService) GetUsers(userIDs []int) ([]entity.User, error) {
+	ctx := context.Background()
+	var users []entity.User
+	var usersToFetchFromDB []int
+	cacheKeyPrefix := "user:" // Cache key prefix for each user
+
+	// Iterate over user IDs and try to fetch from cache
+	for _, userID := range userIDs {
+		userCacheKey := fmt.Sprintf("%s%d", cacheKeyPrefix, userID)
+		cachedUser, err := s.redisClient.HGetAll(ctx, userCacheKey).Result()
+
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Error when fetching user data from Redis: %v", err))
+			return nil, err
+		}
+
+		if len(cachedUser) > 0 {
+			birthdayStr := cachedUser["birthday"]
+			birthday, err := time.Parse(time.RFC3339, birthdayStr)
+			if err != nil {
+				// Handle error (e.g., log it, or set a default value)
+				logger.LogError(fmt.Sprintf("Failed to parse birthday for user %d: %v", userID, err))
+				return nil, err
+			}
+			// If user exists in cache, map it to the entity.User struct
+			user := entity.User{
+				ID:        userID,
+				FirstName: cachedUser["first_name"],
+				LastName:  cachedUser["last_name"],
+				Birthday:  birthday, // You might need to parse the date depending on your date format
+				Email:     cachedUser["email"],
+				Username:  cachedUser["username"],
+			}
+			users = append(users, user)
+		} else {
+			// If user is not in cache, add the ID to the list to fetch from DB
+			usersToFetchFromDB = append(usersToFetchFromDB, userID)
+		}
+	}
+
+	// If all users are found in cache, return them
+	if len(usersToFetchFromDB) == 0 {
+		return users, nil
+	}
+
+	// Fetch missing users from the database
+	dbUsers, err := s.userRepo.GetUsers(usersToFetchFromDB)
+	if err != nil {
+		return nil, err
+	}
+
+	users = append(users, dbUsers...)
+
+	// Update the cache for the users fetched from the database in a goroutine
+	go func(users []entity.User) {
+		for _, user := range dbUsers {
+			userCacheKey := fmt.Sprintf("%s%d", cacheKeyPrefix, user.ID)
+			userMap := map[string]interface{}{
+				"first_name": user.FirstName,
+				"last_name":  user.LastName,
+				"birthday":   user.Birthday.Format(time.RFC3339), // Format the time properly
+				"email":      user.Email,
+				"username":   user.Username,
+			}
+			_, err := s.redisClient.HMSet(ctx, userCacheKey, userMap).Result()
+			if err != nil {
+				logger.LogError(fmt.Sprintf("Failed to cache user %d: %v", user.ID, err))
+			}
+			// Optionally, set expiration for the cached user (e.g., 24 hours)
+			s.redisClient.Expire(ctx, userCacheKey, 24*time.Hour)
+		}
+	}(dbUsers)
+
+	return users, nil
 }
 
 // - MARK: Privates

@@ -8,8 +8,8 @@ type CreatePostRequest struct {
 
 // EditPostRequest represents the request payload for editing an existing post.
 type EditPostRequest struct {
-	Text  string `json:"text"`
-	Image string `json:"image"` // URL or path to the image
+	Text     string `json:"text"`
+	HasImage bool   `json:"hasImage"`
 }
 
 // DeletePostRequest represents the request payload for deleting a post.

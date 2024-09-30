@@ -14,7 +14,7 @@ type FriendsServiceInterface interface {
 	GetFriends(userID int, limit int, cursor int) ([]entity.User, int, error)
 	FollowUser(currentUserID int, followedUserID int) (string, error)
 	UnfollowUser(currentUserID int, unfollowedUserID int) (string, error)
-	GetUserPosts(userID int) ([]entity.Post, error)
+	GetUserPosts(userID int, limit int, cursor int) ([]entity.Post, int, error)
 }
 
 type FriendsService struct {
@@ -27,7 +27,7 @@ type FriendsService struct {
 // GetFriends retrieves the list of friends for a user.
 func (s *FriendsService) GetFriends(userID int, limit int, cursor int) ([]entity.User, int, error) {
 	// Create cache key
-	cacheKey := fmt.Sprintf("%d", userID)
+	cacheKey := fmt.Sprintf("friends:%d", userID)
 
 	// Get followers from cache
 	followerIDs, err := s.redisClient.ZRangeByScore(
@@ -71,7 +71,7 @@ func (s *FriendsService) GetFriends(userID int, limit int, cursor int) ([]entity
 	}
 
 	if len(followers) > 0 {
-		return followers, maxID + 1, nil // next cursor = maxID+1
+		return followers, maxID, nil // next cursor = maxID+1
 	}
 
 	followers, nextCursor, err := s.friendsRepo.GetFriends(userID, limit, cursor)
@@ -194,6 +194,93 @@ func (s *FriendsService) UnfollowUser(currentUserID int, unfollowedUserID int) (
 }
 
 // GetUserPosts retrieves the posts by a user.
-func (s *FriendsService) GetUserPosts(userID int) ([]entity.Post, error) {
-	return s.postRepo.GetPostsByUserID(userID)
+func (s *FriendsService) GetUserPosts(userID int, limit int, cursor int) ([]entity.Post, int, error) {
+	// Create cache key
+	cacheKey := fmt.Sprintf("posts:%d", userID)
+
+	// Get posts from cache
+	postIDs, err := s.redisClient.ZRangeByScore(
+		context.Background(), cacheKey, &redis.ZRangeBy{
+			Min:    fmt.Sprintf("%d", cursor),
+			Max:    "+inf",
+			Offset: 0,
+			Count:  int64(limit),
+		},
+	).Result()
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	// Initialize a slice for User entities and find the maximum ID
+	var posts []entity.Post
+	maxID := 0
+
+	for _, postIDStr := range postIDs {
+		postID, err := strconv.Atoi(postIDStr)
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Error converting post ID %s to int: %v", postID, err))
+			continue
+		}
+		postKey := fmt.Sprintf("user-posts:%d", postID)
+		postData, err := s.redisClient.HGetAll(context.Background(), postKey).Result()
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Error when get user posts for user %d: %v", userID, err))
+			continue
+		}
+		post := entity.Post{
+			ID:               postID,
+			UserID:           userID,
+			ContentText:      postData["content_text"],
+			ContentImagePath: postData["content_image_path"],
+		}
+		posts = append(posts, post) // Append user to the slice
+		if post.ID > maxID {
+			maxID = post.ID
+		}
+	}
+
+	if len(posts) > 0 {
+		return posts, maxID, nil // next cursor = maxID+1
+	}
+
+	posts, nextCursor, err := s.postRepo.GetPostsByUserID(userID, limit, cursor)
+
+	if err != nil {
+		return nil, 0, err
+	}
+
+	go func() {
+		// Prepare data for Redis sorted set
+		for _, post := range posts {
+
+			// Cache user data in a hash.
+			postKey := fmt.Sprintf("user-posts:%d", post.ID)
+			_, err = s.redisClient.HSet(
+				context.Background(), postKey, map[string]interface{}{
+					"id":                 post.ID,
+					"content_text":       post.ContentText,
+					"content_image_path": post.ContentImagePath,
+				},
+			).Result()
+			if err != nil {
+				logger.LogError(fmt.Sprintf("Error when caching post %d: %v", post.ID, err))
+				return
+			}
+
+			_, err = s.redisClient.ZAdd(
+				context.Background(),
+				cacheKey,
+				redis.Z{
+					Score:  float64(post.ID),
+					Member: post.ID,
+				},
+			).Result()
+			if err != nil {
+				logger.LogError(fmt.Sprintf("Error adding post to cache: %v", err))
+				return
+			}
+		}
+	}()
+	return posts, nextCursor, nil
 }

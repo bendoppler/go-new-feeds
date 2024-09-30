@@ -20,7 +20,7 @@ func (factory *PersistentFactory) CreateMySQLDatabase() (*sql.DB, error) {
 	port := os.Getenv("DB_PORT")
 	dbName := os.Getenv("DB_NAME")
 
-	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s", user, password, host, port, dbName)
+	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, password, host, port, dbName)
 	db, err := sql.Open("mysql", dsn)
 	if err != nil {
 		return nil, err
