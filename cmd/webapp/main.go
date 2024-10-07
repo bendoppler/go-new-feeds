@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"net/http"
 	_ "net/http/pprof"
 	"news-feed/internal/api/handler"
@@ -73,12 +74,12 @@ func main() {
 
 	go func() {
 		logger.LogInfo(fmt.Sprintf("Attempting to start pprof server"))
-		err := http.ListenAndServe("localhost:6060", nil)
+		err := http.ListenAndServe("0.0.0.0:6060", nil)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Error when run pprof: %v", err))
 			return
 		}
-		logger.LogInfo(fmt.Sprintf("Starting pprof server on localhost:6060"))
+		logger.LogInfo(fmt.Sprintf("Starting pprof server on :6060"))
 	}()
 	go userService.PeriodicallyRefreshBloomFilter(1 * time.Hour)
 
@@ -88,6 +89,9 @@ func main() {
 		logger.LogError(fmt.Sprintf("Failed to initialize Bloom Filter: %v", err))
 		return
 	}
+
+	// Prometheus metrics
+	http.Handle("/metrics", promhttp.Handler())
 
 	// Routes
 

@@ -14,7 +14,7 @@ RUN go mod download
 COPY . .
 
 # Copy the .env file into the container
-COPY .env .env
+COPY .env.newsfeed .env
 
 # Build the Go app
 RUN CGO_ENABLED=0 GOOS=linux go build -o main cmd/news-feed/main.go

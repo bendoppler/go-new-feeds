@@ -23,11 +23,11 @@ type Config struct {
 var config *Config
 
 // LoadConfig loads configuration from .env file
-func LoadConfig() *Config {
+func LoadConfig(envFile string) *Config {
 	if config == nil {
-		err := godotenv.Load()
+		err := godotenv.Load(envFile)
 		if err != nil {
-			log.Fatalf("Error loading .env file")
+			log.Fatalf("Error loading .ENV file %v", envFile)
 		}
 
 		config = &Config{

@@ -1,0 +1,21 @@
+# Dockerfile for user-friends-post-service
+FROM golang:1.23 AS builder
+
+WORKDIR /app
+
+COPY go.mod go.sum ./
+RUN go mod download
+
+COPY . .
+
+RUN CGO_ENABLED=0 GOOS=linux go build -o user-friends-post-service .
+
+FROM alpine:latest
+
+COPY --from=builder /app/user-friends-post-service /user-friends-post-service
+
+RUN chmod +x /user-friends-post-service
+
+EXPOSE 8081
+
+CMD ["/user-friends-post-service"]
