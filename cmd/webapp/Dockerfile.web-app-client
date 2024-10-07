@@ -1,0 +1,27 @@
+# Example for a Go-based web app client
+FROM golang:1.23 AS builder
+
+WORKDIR /app
+
+# Copy go mod and sum files
+COPY go.mod go.sum ./
+
+# Download all dependencies
+RUN go mod download
+
+# Copy the source code into the container
+COPY . .
+
+# Build the Go app
+RUN CGO_ENABLED=0 GOOS=linux go build -o main .
+
+# Use a minimal base image
+FROM alpine:latest
+
+COPY --from=builder /app/main /main
+
+RUN chmod +x /main
+
+EXPOSE 3000
+
+CMD ["/main"]

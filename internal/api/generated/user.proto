@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package userpb;
+
+option go_package = "news-feed/userpb";
+
+// Define the request for the Login service
+message LoginRequest {
+  string userName = 1;
+  string password = 2;
+}
+
+// Define the response for the Login service
+message LoginResponse {
+  string jwtToken = 1;
+  string error = 2;
+}
+
+// Define the gRPC service
+service UserService {
+  rpc Login(LoginRequest) returns (LoginResponse);
+}

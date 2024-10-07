@@ -1,19 +1,36 @@
+version: '3.8'
 
 services:
-  news-feed:
+  web-app-client:
     build:
-      context: .
-      dockerfile: Dockerfile
+      context: ./cmd/webapp # Adjust path as necessary
+      dockerfile: Dockerfile.web-app-client
     ports:
-      - "8080:8080"
-    env_file:
-      - .env
+      - "3000:3000"
     depends_on:
-      - db
-      - redis
-      - minio
-    volumes:
-      - .:/app
+      - user-friends-post-service
+      - news-feed-service
+    environment:
+      - USER_FRIENDS_POST_SERVICE_URL=http://user-friends-post-service:8081
+      - NEWS_FEED_SERVICE_URL=http://news-feed-service:8082
+
+  user-friends-post-service:
+    build:
+      context: ./cmd/userPostFriends  # Adjust path as necessary
+      dockerfile: Dockerfile.user-friends-post-service
+    ports:
+      - "8081:8081"
+    env_file:
+      - .env.newsfeed
+
+  news-feed-service:
+    build:
+      context: ./cmd/newsFeed  # Adjust path as necessary
+      dockerfile: Dockerfile.news-feed-service
+    ports:
+      - "8082:8082"
+    env_file:
+      - .env.newsfeed
 
   db:
     image: mysql:latest
@@ -38,8 +55,8 @@ services:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
       MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
     ports:
-      - "9000:9000" # MinIO Console/API
-      - "9001:9001" # MinIO Admin Console
+      - "9000:9000"  # MinIO Console/API
+      - "9001:9001"  # MinIO Admin Console
     volumes:
       - minio-data:/data
     command: server /data --console-address ":9001"
