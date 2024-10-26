@@ -1,19 +1,19 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"github.com/google/uuid"
 	"net/http"
 	_ "news-feed/docs"
+	"news-feed/internal/api/generated/news-feed/postpb"
 	"news-feed/internal/api/model"
-	"news-feed/internal/entity"
 	"news-feed/internal/service"
 	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"strconv"
 	"strings"
-	"time"
 )
 
 type PostHandlerInterface interface {
@@ -30,7 +30,8 @@ type PostHandlerInterface interface {
 }
 
 type PostHandler struct {
-	postService service.PostServiceInterface
+	postService     service.PostServiceInterface
+	grpcPostHandler postpb.PostServiceServer
 }
 
 func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {
@@ -112,27 +113,13 @@ func (h *PostHandler) CreatePost() http.HandlerFunc {
 			return
 		}
 
-		// Retrieve the user ID from the context
-		userID, ok := r.Context().Value("userID").(int)
-		if !ok {
-			logger.LogError(fmt.Sprintf("User ID not found int context"))
-			http.Error(w, "User ID not found in context", http.StatusInternalServerError)
-			return
+		req := &postpb.CreatePostRequest{
+			Text:     request.Text,
+			HasImage: request.HasImage,
 		}
-
-		var imageFileName string
-		if request.HasImage {
-			imageFileName = h.generateUniqueFileName()
-		} else {
-			imageFileName = ""
-		}
-
-		// Call the CreatePost service method
-		createdPost, err := h.postService.CreatePost(request.Text, imageFileName, userID)
-
-		// Prepare the response
+		resp, err := h.grpcPostHandler.CreatePost(context.Background(), req)
 		response := map[string]interface{}{
-			"preSignedURL": createdPost.ContentImagePath,
+			"preSignedURL": resp.PreSignedURL,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
@@ -175,7 +162,12 @@ func (h *PostHandler) GetPost() http.HandlerFunc {
 			return
 		}
 
-		post, err := h.postService.GetPost(postID)
+		req := postpb.GetPostRequest{
+			PostId: int32(postID),
+		}
+
+		post, err := h.grpcPostHandler.GetPost(context.Background(), &req)
+
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to get post: %v", err))
 			http.Error(w, err.Error(), http.StatusNotFound)
@@ -223,27 +215,18 @@ func (h *PostHandler) EditPost() http.HandlerFunc {
 			return
 		}
 
-		// Create an updated post object
-		post := entity.Post{
-			ID:               postID,
-			ContentText:      request.Text,
-			ContentImagePath: "",
+		req := postpb.EditPostRequest{
+			PostId:      int32(postID),
+			ContentText: request.Text,
+			HasImage:    request.HasImage,
 		}
 
 		// Call service to update the post
-		updatedPost, err := h.postService.EditPost(post)
+		response, err := h.grpcPostHandler.EditPost(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to update post: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		var response map[string]interface{}
-
-		if request.HasImage {
-			response["preSignedURL"] = updatedPost.ContentImagePath
-		} else {
-			response["preSignedURL"] = ""
 		}
 
 		// Respond with success
@@ -286,7 +269,12 @@ func (h *PostHandler) DeletePost() http.HandlerFunc {
 			return
 		}
 
-		err = h.postService.DeletePost(postID, userID)
+		req := postpb.DeletePostRequest{
+			PostId: int32(postID),
+			UserId: int32(userID),
+		}
+
+		response, err := h.grpcPostHandler.DeletePost(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to delete post: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -294,7 +282,7 @@ func (h *PostHandler) DeletePost() http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(map[string]string{"msg": "Post deleted successfully"})
+		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to encode response: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -341,7 +329,13 @@ func (h *PostHandler) CommentOnPost() http.HandlerFunc {
 			return
 		}
 
-		createdComment, err := h.postService.CommentOnPost(postID, currentUserID, commentRequest.Text)
+		req := postpb.CommentOnPostRequest{
+			PostId: int32(postID),
+			UserId: int32(currentUserID),
+			Text:   commentRequest.Text,
+		}
+
+		createdComment, err := h.grpcPostHandler.CommentOnPost(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to comment on post: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -386,7 +380,12 @@ func (h *PostHandler) LikePost() http.HandlerFunc {
 			return
 		}
 
-		err = h.postService.LikePost(postID, currentUserID)
+		req := postpb.LikePostRequest{
+			PostId: int32(postID),
+			UserId: int32(currentUserID),
+		}
+
+		response, err := h.grpcPostHandler.LikePost(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to like post: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -394,7 +393,7 @@ func (h *PostHandler) LikePost() http.HandlerFunc {
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(map[string]string{"msg": "Post liked successfully"})
+		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to encode response: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -441,20 +440,18 @@ func (h *PostHandler) GetComments() http.HandlerFunc {
 			}
 		}
 
-		comments, nextCursor, err := h.postService.GetComments(postID, cursor, limit)
+		req := postpb.GetCommentsRequest{
+			PostId: int32(postID),
+			Cursor: int32(cursor),
+			Limit:  int32(limit),
+		}
+
+		response, err := h.grpcPostHandler.GetComments(context.Background(), &req)
 
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to get comments: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		response := struct {
-			Comments   []entity.Comment `json:"comments"`
-			NextCursor int              `json:"next_cursor"`
-		}{
-			Comments:   comments,
-			NextCursor: nextCursor,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -492,36 +489,17 @@ func (h *PostHandler) GetLikes() http.HandlerFunc {
 			limit = l
 		}
 
-		var cursor time.Time
-		defaultCursor := time.Unix(0, 0) // Set default cursor to the Unix epoch (1970-01-01)
-
 		// Get cursor from the query parameters
 		cursorStr := r.URL.Query().Get("cursor")
-		if cursorStr != "" {
-			// Attempt to parse the cursor
-			parsedCursor, err := time.Parse(time.RFC3339, cursorStr) // Assuming cursor is in RFC3339 format
-			if err != nil {
-				logger.LogError(fmt.Sprintf("Invalid cursor format: %v", err))
-				http.Error(w, "Invalid cursor", http.StatusBadRequest)
-				return
-			}
-			cursor = parsedCursor
-		} else {
-			// If cursor doesn't exist, set it to the default value
-			cursor = defaultCursor
+		req := postpb.GetLikesRequest{
+			PostId: int32(postID),
+			Limit:  int32(limit),
+			Cursor: cursorStr,
 		}
-		users, nextCursor, err := h.postService.GetLikes(postID, cursor, limit)
+		response, err := h.grpcPostHandler.GetLikes(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed to get likes for post: %v", err))
 			return
-		}
-		// Prepare the response including the nextCursor
-		response := struct {
-			Users      []entity.User `json:"users"`
-			NextCursor *time.Time    `json:"next_cursor"`
-		}{
-			Users:      users,
-			NextCursor: nextCursor,
 		}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
@@ -553,15 +531,11 @@ func (h *PostHandler) GetLikesCount() http.HandlerFunc {
 			return
 		}
 
-		likeCount, err := h.postService.GetLikeCount(postID)
-		if err != nil {
-			logger.LogError(fmt.Sprintf("Failed to get likes for post: %v", err))
-			http.Error(w, "Failed to retrieve like count", http.StatusInternalServerError)
-			return
+		req := postpb.GetLikesCountRequest{
+			PostId: int32(postID),
 		}
-
+		response, err := h.grpcPostHandler.GetLikesCount(context.Background(), &req)
 		// Respond with the like count
-		response := map[string]int{"like_count": likeCount}
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
