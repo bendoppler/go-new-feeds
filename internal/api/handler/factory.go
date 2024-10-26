@@ -1,6 +1,9 @@
 package handler
 
-import "news-feed/internal/service"
+import (
+	"news-feed/internal/api/generated/news-feed/userpb"
+	"news-feed/internal/service"
+)
 
 type HandlerFactoryInterface interface {
 	CreateUserHandler(userService service.UserServiceInterface) UserHandlerInterface
@@ -11,9 +14,9 @@ type HandlerFactoryInterface interface {
 
 type HandlerFactory struct{}
 
-func (*HandlerFactory) CreateUserHandler(userService service.UserServiceInterface) UserHandlerInterface {
+func (*HandlerFactory) CreateUserHandler(grpcUserHandler userpb.UserServiceServer) UserHandlerInterface {
 	return &UserHandler{
-		userService: userService,
+		grpcUserHandler: grpcUserHandler,
 	}
 }
 

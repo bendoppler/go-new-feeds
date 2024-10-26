@@ -7,13 +7,13 @@ import (
 	"news-feed/internal/db"
 	"news-feed/internal/repository"
 	"news-feed/internal/service"
-	"news-feed/pkg/config"
+	"news-feed/pkg/config/newsfeed"
 	"news-feed/pkg/logger"
 )
 
 func main() {
 	// Load configuration
-	cfg := config.LoadConfig(".env.newsfeed")
+	cfg := newsfeed.LoadNewsfeedConfig()
 
 	// Initialize logger
 	logger.InitLogger()
