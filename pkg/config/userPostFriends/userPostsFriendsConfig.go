@@ -1,12 +1,11 @@
-package config
+package userPostFriends
 
 import (
-	"github.com/joho/godotenv"
+	"github.com/spf13/viper"
 	"log"
-	"os"
 )
 
-type Config struct {
+type UserPostFriendsConfig struct {
 	AppName       string
 	AppPort       string
 	DBHost        string
@@ -20,19 +19,18 @@ type Config struct {
 	JWTSecret     string
 }
 
-var config *Config
+var config *UserPostFriendsConfig
 
-// LoadConfig loads configuration from .env file
-func LoadConfig(envFile string) *Config {
+func LoadUserPostFriendsConfig() *UserPostFriendsConfig {
+	viper.SetConfigType("env")
+	viper.SetConfigFile(".env.userPostFriends")
+	if err := viper.ReadInConfig(); err != nil {
+		log.Fatalf("Error loading .env.userPostFriends: %v", err)
+	}
 	if config == nil {
-		err := godotenv.Load(envFile)
-		if err != nil {
-			log.Fatalf("Error loading .ENV file %v", envFile)
-		}
-
-		config = &Config{
-			AppName:       getEnv("APP_NAME", "NewsFeedApp"),
-			AppPort:       getEnv("APP_PORT", "8080"),
+		config = &UserPostFriendsConfig{
+			AppName:       getEnv("APP_NAME", "UserPostFriends"),
+			AppPort:       getEnv("APP_PORT", "8082"),
 			DBHost:        getEnv("DB_HOST", "localhost"),
 			DBPort:        getEnv("DB_PORT", "3306"),
 			DBUser:        getEnv("DB_USER", "root"),
@@ -41,16 +39,15 @@ func LoadConfig(envFile string) *Config {
 			RedisHost:     getEnv("REDIS_HOST", "localhost"),
 			RedisPort:     getEnv("REDIS_PORT", "6379"),
 			RedisPassword: getEnv("REDIS_PASSWORD", ""),
-			JWTSecret:     getEnv("JWT_SECRET", "mysecret"),
+			JWTSecret:     getEnv("JWT_SECRET", ""),
 		}
 	}
 
 	return config
 }
 
-// getEnv is a helper function to read an environment variable or return a default value
 func getEnv(key, defaultValue string) string {
-	if value, exists := os.LookupEnv(key); exists {
+	if value := viper.GetString(key); value != "" {
 		return value
 	}
 	return defaultValue

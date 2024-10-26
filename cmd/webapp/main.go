@@ -3,20 +3,19 @@ package main
 import (
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	httpSwagger "github.com/swaggo/http-swagger"
+	"google.golang.org/grpc"
 	"net/http"
 	_ "net/http/pprof"
+	_ "news-feed/docs"
 	"news-feed/internal/api/handler"
 	"news-feed/internal/db"
 	"news-feed/internal/repository"
 	"news-feed/internal/service"
 	"news-feed/internal/storage"
-	"news-feed/pkg/config"
+	"news-feed/pkg/config/webApp"
 	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
-	"time"
-
-	httpSwagger "github.com/swaggo/http-swagger"
-	_ "news-feed/docs"
 )
 
 // @title News Feed API
@@ -36,7 +35,7 @@ import (
 
 func main() {
 	// Load configuration
-	cfg := config.LoadConfig()
+	cfg := webApp.LoadConfig()
 
 	// Initialize logger
 	logger.InitLogger()
@@ -62,7 +61,6 @@ func main() {
 
 	userRepo := repositoryFactory.CreateUserRepository(mySQLDB)
 	userService := serviceFactory.CreateUserService(userRepo)
-	userHandler := handlerFactory.CreateUserHandler(userService)
 	postRepo := repositoryFactory.CreatePostRepository(mySQLDB)
 	postService := serviceFactory.CreatePostService(postRepo, minioStorage, userService)
 	postHandler := handlerFactory.CreatePostHandler(postService)
@@ -71,6 +69,16 @@ func main() {
 	friendsHandler := handlerFactory.CreateFriendsHandler(friendService)
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
 	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
+
+	grpcUserHandler := &handler.GRPCUserHandler{UserService: userService}
+	userHandler := handlerFactory.CreateUserHandler(grpcUserHandler)
+
+	conn, err := grpc.Dial(cfg.PostUserFriendsPort, grpc.WithInsecure()) // Use secure connection in production
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Failed to connect to post user service server: %v", err))
+		return
+	}
+	defer conn.Close()
 
 	go func() {
 		logger.LogInfo(fmt.Sprintf("Attempting to start pprof server"))
@@ -81,14 +89,6 @@ func main() {
 		}
 		logger.LogInfo(fmt.Sprintf("Starting pprof server on :6060"))
 	}()
-	go userService.PeriodicallyRefreshBloomFilter(1 * time.Hour)
-
-	// Populate the Bloom filter
-	err = userService.InitializeBloomFilter()
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Failed to initialize Bloom Filter: %v", err))
-		return
-	}
 
 	// Prometheus metrics
 	http.Handle("/metrics", promhttp.Handler())

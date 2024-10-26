@@ -2,7 +2,7 @@ package storage
 
 import (
 	"fmt"
-	"os"
+	"news-feed/pkg/config/webApp"
 )
 
 type StorageFactoryInterface interface {
@@ -13,10 +13,11 @@ type StorageFactory struct{}
 
 func (f *StorageFactory) CreateMinioStorage() (MinioStorageInterface, error) {
 	// Read MinIO configuration from environment variables
-	endpoint := os.Getenv("MINIO_ENDPOINT")
-	accessKeyID := os.Getenv("MINIO_ACCESS_KEY")
-	secretAccessKey := os.Getenv("MINIO_SECRET_KEY")
-	bucketName := os.Getenv("MINIO_BUCKET")
+	cfg := webApp.LoadConfig()
+	endpoint := cfg.MinIOEndpoint
+	accessKeyID := cfg.MinIOAccessKey
+	secretAccessKey := cfg.MinIOSecretKey
+	bucketName := cfg.MinIOBucket
 
 	// Initialize MinIO client
 	minioClient, err := NewMinioStorage(endpoint, accessKeyID, secretAccessKey, bucketName)

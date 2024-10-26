@@ -3,35 +3,28 @@ package cache
 import (
 	"context"
 	"fmt"
-	"github.com/joho/godotenv"
 	"github.com/redis/go-redis/v9"
 	"log"
-	"os"
+	"news-feed/pkg/config/webApp"
 	"time"
 )
 
 var redisClient *redis.Client
 
 func init() {
-	// Load environment variables from .env file
-	if err := godotenv.Load(); err != nil {
-		log.Fatalf("Error loading .env file: %v", err)
-	}
-
 	// Initialize Redis client
 	redisClient = newRedisClient()
 }
 
 func newRedisClient() *redis.Client {
-	password := os.Getenv("REDIS_PASSWORD")
-	redisHost := os.Getenv("REDIS_HOST")
-	redisPort := os.Getenv("REDIS_PORT")
+	cfg := webApp.LoadConfig()
+	redisHost := cfg.RedisHost
+	redisPort := cfg.RedisPort
 	addr := fmt.Sprintf("%s:%s", redisHost, redisPort)
 
 	client := redis.NewClient(
 		&redis.Options{
 			Addr:         addr,
-			Password:     password,
 			DB:           0,
 			PoolSize:     300,              // Further increase if needed
 			MinIdleConns: 50,               // Minimum idle connections

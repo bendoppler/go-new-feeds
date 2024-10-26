@@ -7,12 +7,12 @@ import (
 	"math/rand"
 	"net/http"
 	"news-feed/internal/cache"
-	"news-feed/pkg/config"
+	"news-feed/pkg/config/webApp"
 	"strings"
 	"time"
 )
 
-var jwtKey = config.LoadConfig().JWTSecret
+var jwtKey = webApp.LoadConfig().JWTSecret
 var redisClient = cache.GetRedisClient()
 
 type Claims struct {
@@ -94,7 +94,7 @@ func GenerateJWT(userName string) (string, error) {
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	jwtSecret := config.LoadConfig().JWTSecret
+	jwtSecret := webApp.LoadConfig().JWTSecret
 	tokenStr, err := token.SignedString([]byte(jwtSecret))
 	if err != nil {
 		return "", err

@@ -3,7 +3,7 @@ package db
 import (
 	"database/sql"
 	"fmt"
-	"os"
+	"news-feed/pkg/config/webApp"
 	"time"
 )
 
@@ -14,11 +14,12 @@ type PersistentFactoryInterface interface {
 type PersistentFactory struct{}
 
 func (factory *PersistentFactory) CreateMySQLDatabase() (*sql.DB, error) {
-	user := os.Getenv("DB_USER")
-	password := os.Getenv("DB_PASSWORD")
-	host := os.Getenv("DB_HOST")
-	port := os.Getenv("DB_PORT")
-	dbName := os.Getenv("DB_NAME")
+	cfg := webApp.LoadConfig()
+	user := cfg.DBUser
+	password := cfg.DBPassword
+	host := cfg.DBHost
+	port := cfg.DBPort
+	dbName := cfg.DBName
 
 	dsn := fmt.Sprintf("%s:%s@tcp(%s:%s)/%s?parseTime=true", user, password, host, port, dbName)
 	db, err := sql.Open("mysql", dsn)

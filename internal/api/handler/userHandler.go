@@ -1,13 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
 	_ "news-feed/docs"
+	"news-feed/internal/api/generated/news-feed/userpb"
 	"news-feed/internal/api/model"
-	"news-feed/internal/entity"
-	"news-feed/internal/service"
 	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"time"
@@ -22,7 +22,7 @@ type UserHandlerInterface interface {
 
 // UserHandler handles requests related to users.
 type UserHandler struct {
-	userService service.UserServiceInterface
+	grpcUserHandler userpb.UserServiceServer
 }
 
 func (h *UserHandler) UserHandler(w http.ResponseWriter, r *http.Request) {
@@ -57,15 +57,23 @@ func (h *UserHandler) Login() http.HandlerFunc {
 			return
 		}
 
-		token, err := h.userService.Login(credentials.UserName, credentials.Password)
+		// Prepare the gRPC request
+		req := &userpb.LoginRequest{
+			UserName: credentials.UserName,
+			Password: credentials.Password,
+		}
+
+		// Call gRPC Login method
+		resp, err := h.grpcUserHandler.Login(context.Background(), req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Login failed: %v", err))
-			http.Error(w, err.Error(), http.StatusUnauthorized)
+			http.Error(w, "Unauthorized", http.StatusUnauthorized)
 			return
 		}
 
+		// Send back the token in the response
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(map[string]string{"token": token})
+		err = json.NewEncoder(w).Encode(map[string]string{"token": resp.JwtToken})
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Encode failed: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -94,30 +102,24 @@ func (h *UserHandler) Signup() http.HandlerFunc {
 			return
 		}
 
-		birthday, err := h.convertStringToDate(signupRequest.Birthday)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
 		// Convert API model to entity model
-		newUser := entity.User{
+		newUser := userpb.SignupRequest{
 			Username:  signupRequest.UserName,
 			Email:     signupRequest.Email,
 			FirstName: signupRequest.FirstName,
 			LastName:  signupRequest.LastName,
-			Birthday:  birthday,
+			Birthday:  signupRequest.Birthday,
 			Password:  signupRequest.Password,
 		}
 
-		token, err := h.userService.Signup(newUser)
+		response, err := h.grpcUserHandler.Signup(context.Background(), &newUser)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(map[string]string{"token": token})
+		err = json.NewEncoder(w).Encode(map[string]string{"token": response.Token})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
@@ -145,21 +147,15 @@ func (h *UserHandler) EditProfile() http.HandlerFunc {
 			return
 		}
 
-		birthday, err := h.convertStringToDate(profileUpdate.Birthday)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
 		// Convert API model to entity model
-		user := entity.User{
+		user := userpb.EditProfileRequest{
 			FirstName: profileUpdate.FirstName,
 			LastName:  profileUpdate.LastName,
-			Birthday:  birthday,
+			Birthday:  profileUpdate.Birthday,
 			Password:  profileUpdate.Password,
 		}
 
-		err = h.userService.EditProfile(user)
+		_, err := h.grpcUserHandler.EditProfile(context.Background(), &user)
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
