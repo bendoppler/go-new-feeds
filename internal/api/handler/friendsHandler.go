@@ -1,10 +1,11 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"news-feed/internal/entity"
+	"news-feed/internal/api/generated/news-feed/friendspb"
 	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"strconv"
@@ -23,7 +24,8 @@ type FriendsHandlerInterface interface {
 }
 
 type FriendsHandler struct {
-	friendsService service.FriendsServiceInterface
+	friendsService     service.FriendsServiceInterface
+	grpcFriendsHandler friendspb.FriendsServiceServer
 }
 
 // FriendsHandler handles all requests under /v1/friends/
@@ -103,20 +105,17 @@ func (h *FriendsHandler) GetFriends() http.HandlerFunc {
 			}
 		}
 
-		users, nextCursor, err := h.friendsService.GetFriends(userID, limit, cursor)
+		req := friendspb.GetFriendsRequest{
+			UserId: int32(userID),
+			Limit:  int32(limit),
+			Cursor: int32(cursor),
+		}
+
+		response, err := h.grpcFriendsHandler.GetFriends(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Get followers failed %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		// Prepare the response including the nextCursor
-		response := struct {
-			Users      []entity.User `json:"users"`
-			NextCursor int           `json:"next_cursor"`
-		}{
-			Users:      users,
-			NextCursor: nextCursor,
 		}
 
 		w.Header().Set("Content-Type", "application/json")
@@ -129,17 +128,6 @@ func (h *FriendsHandler) GetFriends() http.HandlerFunc {
 	}
 }
 
-// FollowUser handles POST requests for following a user.
-// @Summary Follow a user
-// @Description Follow another user by providing the target user ID
-// @Tags friends
-// @Accept  json
-// @Produce  json
-// @Param   user_id  path     int true  "Target User ID"
-// @Success 200 {object} map[string]string
-// @Failure 400 {object} map[string]string
-// @Failure 500 {object} map[string]string
-// @Router /v1/friends/{user_id} [post]
 func (h *FriendsHandler) FollowUser() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		// Get the current user ID from the request context (assumes middleware has set it)
@@ -159,8 +147,13 @@ func (h *FriendsHandler) FollowUser() http.HandlerFunc {
 			return
 		}
 
+		req := friendspb.FollowUserRequest{
+			CurrentUserId: int32(currentUserID),
+			TargetUserId:  int32(targetUserID),
+		}
+
 		// Call the service method to follow the target user
-		msg, err := h.friendsService.FollowUser(currentUserID, targetUserID)
+		response, err := h.grpcFriendsHandler.FollowUser(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Follow user failed %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -169,7 +162,7 @@ func (h *FriendsHandler) FollowUser() http.HandlerFunc {
 
 		// Return success response
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(map[string]string{"msg": msg})
+		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed encode response: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -208,8 +201,13 @@ func (h *FriendsHandler) UnfollowUser() http.HandlerFunc {
 			return
 		}
 
+		req := friendspb.UnfollowUserRequest{
+			CurrentUserId: int32(currentUserID),
+			TargetUserId:  int32(targetUserID),
+		}
+
 		// Call the service method to unfollow the target user
-		msg, err := h.friendsService.UnfollowUser(currentUserID, targetUserID)
+		response, err := h.grpcFriendsHandler.UnfollowUser(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Unfollow user failed %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -218,7 +216,7 @@ func (h *FriendsHandler) UnfollowUser() http.HandlerFunc {
 
 		// Return success response
 		w.Header().Set("Content-Type", "application/json")
-		err = json.NewEncoder(w).Encode(map[string]string{"msg": msg})
+		err = json.NewEncoder(w).Encode(response)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Failed encode response: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
@@ -265,20 +263,16 @@ func (h *FriendsHandler) GetUserPosts() http.HandlerFunc {
 			}
 		}
 
-		posts, nextCursor, err := h.friendsService.GetUserPosts(userID, limit, cursor)
+		req := friendspb.GetUserPostsRequest{
+			UserId: int32(userID),
+			Limit:  int32(limit),
+			Cursor: int32(cursor),
+		}
+		response, err := h.grpcFriendsHandler.GetUserPosts(context.Background(), &req)
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Get user posts failed %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
-		}
-
-		// Prepare the response including the nextCursor
-		response := struct {
-			Posts      []entity.Post `json:"posts"`
-			NextCursor int           `json:"next_cursor"`
-		}{
-			Posts:      posts,
-			NextCursor: nextCursor,
 		}
 
 		w.Header().Set("Content-Type", "application/json")

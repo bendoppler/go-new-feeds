@@ -1,0 +1,140 @@
+syntax = "proto3";
+
+package postpb;
+
+option go_package = "news-feed/postpb";
+
+import "google/protobuf/timestamp.proto"; // Make sure this line is present
+
+service PostService {
+  rpc CreatePost(CreatePostRequest) returns (CreatePostResponse);
+  rpc GetPost(GetPostRequest) returns (GetPostResponse);
+  rpc EditPost(EditPostRequest) returns (EditPostResponse);
+  rpc DeletePost(DeletePostRequest) returns (DeletePostResponse);
+  rpc CommentOnPost(CommentOnPostRequest) returns (CommentOnPostResponse);
+  rpc LikePost(LikePostRequest) returns (LikePostResponse);
+  rpc GetComments(GetCommentsRequest) returns (GetCommentsResponse);
+  rpc GetLikes(GetLikesRequest) returns (GetLikesResponse);
+  rpc GetLikesCount(GetLikesCountRequest) returns (GetLikesCountResponse);
+}
+
+message CreatePostRequest {
+  string text = 1;
+  bool hasImage = 2;
+}
+
+message CreatePostResponse {
+  string preSignedURL = 1;
+}
+
+message GetPostRequest {
+  int32 postId = 1; // Add post ID to request
+}
+
+message GetPostResponse {
+  int32 id = 1;                   // Post ID
+  int32 userId = 2;               // User ID who created the post
+  string contentText = 3;         // Post content text
+  string contentImagePath = 4;    // URL or path to the image
+  string createdAt = 5;            // Created at timestamp as string
+}
+
+// Message for the EditPost request
+message EditPostRequest {
+  int32 post_id = 1;            // ID of the post to edit
+  string content_text = 2;      // New content for the post
+  bool has_image = 3;           // Indicates if the post has an image
+}
+
+// Message for the EditPost response
+message EditPostResponse {
+  string pre_signed_url = 1;    // Pre-signed URL for the image (if any)
+}
+
+// Message for the DeletePost request
+message DeletePostRequest {
+  int32 post_id = 1;   // ID of the post to delete
+  int32 user_id = 2;   // ID of the user requesting the deletion
+}
+
+// Message for the DeletePost response
+message DeletePostResponse {
+  string msg = 1;      // Confirmation message for deletion
+}
+
+message CommentOnPostRequest {
+  int32 post_id = 1;    // ID of the post to comment on
+  int32 user_id = 2;    // ID of the user commenting
+  string text = 3;      // The comment text
+}
+
+// Message for the CommentOnPost response
+message CommentOnPostResponse {
+  int32 comment_id = 1; // ID of the created comment
+  string text = 2;       // The comment text
+  int32 user_id = 3;     // ID of the user who made the comment
+  string created_at = 4; // Timestamp of when the comment was created
+}
+
+// Message for the LikePost request
+message LikePostRequest {
+  int32 post_id = 1;  // ID of the post to like
+  int32 user_id = 2;  // ID of the user liking the post
+}
+
+// Message for the LikePost response
+message LikePostResponse {
+  string message = 1; // Success message
+}
+
+// Message for the GetComments request
+message GetCommentsRequest {
+  int32 post_id = 1;   // ID of the post to get comments for
+  int32 cursor = 2;    // Cursor for pagination
+  int32 limit = 3;     // Limit of comments to retrieve
+}
+
+// Message for the GetComments response
+message GetCommentsResponse {
+  repeated Comment comments = 1; // List of comments
+  int32 next_cursor = 2;          // Next cursor for pagination
+}
+
+// Message definition for Comment
+message Comment {
+  int32 id = 1;          // ID of the comment
+  int32 user_id = 2;     // ID of the user who made the comment
+  string text = 3;       // Comment text
+  string created_at = 4; // Creation timestamp
+}
+
+message GetLikesRequest {
+  int32 post_id = 1;
+  int32 limit = 2;
+  string cursor = 3; // RFC3339 formatted string
+}
+
+message GetLikesResponse {
+  repeated User users = 1;
+  string next_cursor = 2; // Optional, use empty string if nil
+}
+
+// User message definition
+message User {
+  int32 id = 1;
+  string hashed_password = 2;
+  string salt = 3;
+  string first_name = 4;
+  string last_name = 5;
+  google.protobuf.Timestamp birthday = 6; // Use Timestamp for time.Time
+  string email = 7;
+  string username = 8; // This matches the column `user_name`
+}
+
+message GetLikesCountRequest {
+  int32 post_id = 1; // The ID of the post
+}
+
+message GetLikesCountResponse {
+  int32 like_count = 1; // The count of likes for the post
+}
