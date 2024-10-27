@@ -12,7 +12,6 @@ import (
 	"strings"
 
 	_ "news-feed/docs"
-	"news-feed/internal/service"
 )
 
 type FriendsHandlerInterface interface {
@@ -24,8 +23,7 @@ type FriendsHandlerInterface interface {
 }
 
 type FriendsHandler struct {
-	friendsService     service.FriendsServiceInterface
-	grpcFriendsHandler friendspb.FriendsServiceServer
+	grpcFriendsHandler friendspb.FriendsServiceClient
 }
 
 // FriendsHandler handles all requests under /v1/friends/

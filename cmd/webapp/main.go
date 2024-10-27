@@ -8,11 +8,11 @@ import (
 	"net/http"
 	_ "net/http/pprof"
 	_ "news-feed/docs"
+	"news-feed/internal/api/generated/news-feed/friendspb"
+	"news-feed/internal/api/generated/news-feed/newsfeedpb"
+	"news-feed/internal/api/generated/news-feed/postpb"
+	"news-feed/internal/api/generated/news-feed/userpb"
 	"news-feed/internal/api/handler"
-	"news-feed/internal/db"
-	"news-feed/internal/repository"
-	"news-feed/internal/service"
-	"news-feed/internal/storage"
 	"news-feed/pkg/config/webApp"
 	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
@@ -40,45 +40,40 @@ func main() {
 	// Initialize logger
 	logger.InitLogger()
 
-	// Initialize the database connection
-	factory := db.PersistentFactory{}
-	mySQLDB, err := factory.CreateMySQLDatabase()
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Failed to connect to database: %v", err))
-		return
-	}
-
-	repositoryFactory := &repository.RepositoryFactory{}
-	serviceFactory := &service.ServiceFactory{}
-	handlerFactory := &handler.HandlerFactory{}
-	storageFactory := &storage.StorageFactory{}
-
-	minioStorage, err := storageFactory.CreateMinioStorage()
-	if err != nil {
-		logger.LogError(fmt.Sprintf("Failed to create minio storage: %v", err))
-		return
-	}
-
-	userRepo := repositoryFactory.CreateUserRepository(mySQLDB)
-	userService := serviceFactory.CreateUserService(userRepo)
-	postRepo := repositoryFactory.CreatePostRepository(mySQLDB)
-	postService := serviceFactory.CreatePostService(postRepo, minioStorage, userService)
-	postHandler := handlerFactory.CreatePostHandler(postService)
-	friendRepo := repositoryFactory.CreateFriendRepository(mySQLDB)
-	friendService := serviceFactory.CreateFriendsService(friendRepo, postRepo, userRepo)
-	friendsHandler := handlerFactory.CreateFriendsHandler(friendService)
-	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
-	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
-
-	grpcUserHandler := &handler.GRPCUserHandler{UserService: userService}
-	userHandler := handlerFactory.CreateUserHandler(grpcUserHandler)
-
-	conn, err := grpc.Dial(cfg.PostUserFriendsPort, grpc.WithInsecure()) // Use secure connection in production
+	conn, err := grpc.Dial(
+		"localhost:"+cfg.PostUserFriendsPort, grpc.WithInsecure(),
+	) // Use secure connection in production
 	if err != nil {
 		logger.LogError(fmt.Sprintf("Failed to connect to post user service server: %v", err))
 		return
 	}
-	defer conn.Close()
+	handlerFactory := &handler.HandlerFactory{}
+	userService := userpb.NewUserServiceClient(conn)
+	userHandler := handlerFactory.CreateUserHandler(userService)
+	postService := postpb.NewPostServiceClient(conn)
+	postHandler := handlerFactory.CreatePostHandler(postService)
+	friendsService := friendspb.NewFriendsServiceClient(conn)
+	friendsHandler := handlerFactory.CreateFriendsHandler(friendsService)
+	defer func(conn *grpc.ClientConn) {
+		err := conn.Close()
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Failed to close connection to post user service server: %v", err))
+		}
+	}(conn)
+
+	newsfeedConn, err := grpc.Dial("localhost:"+cfg.NewsfeedAppPort, grpc.WithInsecure())
+	newsfeedService := newsfeedpb.NewNewsfeedServiceClient(newsfeedConn)
+	newsfeedHandler := handlerFactory.CreateNewsFeedHandler(newsfeedService)
+	if err != nil {
+		logger.LogError(fmt.Sprintf("Failed to connect news feed service server: %v", err))
+		return
+	}
+	defer func(newsfeedConn *grpc.ClientConn) {
+		err := newsfeedConn.Close()
+		if err != nil {
+			logger.LogError(fmt.Sprintf("Failed to close connection to newsfeed service server: %v", err))
+		}
+	}(newsfeedConn)
 
 	go func() {
 		logger.LogInfo(fmt.Sprintf("Attempting to start pprof server"))
@@ -125,7 +120,7 @@ func main() {
 	// @Success 200 {array} entity.Post
 	// @Failure 404 {object} handler.ErrorResponse
 	// @Router /v1/newsfeed [get]
-	http.HandleFunc("/v1/newsfeed", newsFeedHandler.GetNewsfeed())
+	http.HandleFunc("/v1/newsfeed", newsfeedHandler.GetNewsfeed())
 
 	// @Summary Create post
 	// @Description Create a new post.

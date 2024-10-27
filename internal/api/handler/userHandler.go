@@ -22,7 +22,7 @@ type UserHandlerInterface interface {
 
 // UserHandler handles requests related to users.
 type UserHandler struct {
-	grpcUserHandler userpb.UserServiceServer
+	grpcUserHandler userpb.UserServiceClient
 }
 
 func (h *UserHandler) UserHandler(w http.ResponseWriter, r *http.Request) {

@@ -1,6 +1,9 @@
 package handler
 
 import (
+	"news-feed/internal/api/generated/news-feed/friendspb"
+	"news-feed/internal/api/generated/news-feed/newsfeedpb"
+	"news-feed/internal/api/generated/news-feed/postpb"
 	"news-feed/internal/api/generated/news-feed/userpb"
 	"news-feed/internal/service"
 )
@@ -14,20 +17,20 @@ type HandlerFactoryInterface interface {
 
 type HandlerFactory struct{}
 
-func (*HandlerFactory) CreateUserHandler(grpcUserHandler userpb.UserServiceServer) UserHandlerInterface {
+func (*HandlerFactory) CreateUserHandler(userService userpb.UserServiceClient) UserHandlerInterface {
 	return &UserHandler{
-		grpcUserHandler: grpcUserHandler,
+		grpcUserHandler: userService,
 	}
 }
 
-func (*HandlerFactory) CreatePostHandler(postService service.PostServiceInterface) PostHandlerInterface {
-	return &PostHandler{postService: postService}
+func (*HandlerFactory) CreatePostHandler(postService postpb.PostServiceClient) PostHandlerInterface {
+	return &PostHandler{grpcPostHandler: postService}
 }
 
-func (*HandlerFactory) CreateFriendsHandler(friendsService service.FriendsServiceInterface) FriendsHandlerInterface {
-	return &FriendsHandler{friendsService: friendsService}
+func (*HandlerFactory) CreateFriendsHandler(friendsService friendspb.FriendsServiceClient) FriendsHandlerInterface {
+	return &FriendsHandler{grpcFriendsHandler: friendsService}
 }
 
-func (*HandlerFactory) CreateNewsFeedHandler(newsFeedService service.NewsFeedServiceInterface) NewsFeedHandlerInterface {
+func (*HandlerFactory) CreateNewsFeedHandler(newsFeedService newsfeedpb.NewsfeedServiceClient) NewsFeedHandlerInterface {
 	return &NewsfeedHandler{newsFeedService: newsFeedService}
 }
