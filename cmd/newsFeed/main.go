@@ -2,7 +2,9 @@ package main
 
 import (
 	"fmt"
-	"net/http"
+	"google.golang.org/grpc"
+	"net"
+	"news-feed/internal/api/generated/news-feed/newsfeedpb"
 	"news-feed/internal/api/handler"
 	"news-feed/internal/db"
 	"news-feed/internal/repository"
@@ -25,29 +27,23 @@ func main() {
 	// Initialize repositories and services
 	repositoryFactory := &repository.RepositoryFactory{}
 	serviceFactory := &service.ServiceFactory{}
-	handlerFactory := &handler.HandlerFactory{}
 
 	postRepo := repositoryFactory.CreatePostRepository(mySQLDB) // Provide necessary db connection
 	newsFeedService := serviceFactory.CreateNewsFeedService(postRepo)
-	newsFeedHandler := handlerFactory.CreateNewsFeedHandler(newsFeedService)
+	newsFeedHandler := handler.NewNewsfeedHandler(newsFeedService)
 
-	// @Summary Get news feed
-	// @Description Get the latest posts from user's friends.
-	// @Tags NewsFeed
-	// @Produce  json
-	// @Param   cursor   query    string  false  "Pagination cursor"
-	// @Param   limit    query    int     false  "Limit"
-	// @Success 200 {array} entity.Post
-	// @Failure 404 {object} handler.ErrorResponse
-	// @Router /v1/newsfeed [get]
-	http.HandleFunc("/v1/newsfeed", newsFeedHandler.GetNewsfeed())
+	// Set up gRPC server
+	grpcServer := grpc.NewServer()
+	newsfeedpb.RegisterNewsfeedServiceServer(grpcServer, newsFeedHandler)
 
-	// Start the server
-	addr := ":" + cfg.AppPort
-	logger.LogInfo(fmt.Sprintf("Starting Newsfeed service on %s", addr))
-	err = http.ListenAndServe(addr, nil)
+	// Start listening on the configured port
+	port := cfg.AppPort
+	lis, err := net.Listen("tcp", ":"+port)
 	if err != nil {
-		logger.LogError(err.Error())
+		logger.LogError(fmt.Sprintf("Failed to listen on port %s: %v", port, err))
 		return
+	}
+	if err := grpcServer.Serve(lis); err != nil {
+		logger.LogError(fmt.Sprintf("Failed to serve gRPC server: %v", err))
 	}
 }

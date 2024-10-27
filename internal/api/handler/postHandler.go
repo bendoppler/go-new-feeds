@@ -9,7 +9,6 @@ import (
 	_ "news-feed/docs"
 	"news-feed/internal/api/generated/news-feed/postpb"
 	"news-feed/internal/api/model"
-	"news-feed/internal/service"
 	"news-feed/pkg/logger"
 	"news-feed/pkg/middleware"
 	"strconv"
@@ -30,8 +29,7 @@ type PostHandlerInterface interface {
 }
 
 type PostHandler struct {
-	postService     service.PostServiceInterface
-	grpcPostHandler postpb.PostServiceServer
+	grpcPostHandler postpb.PostServiceClient
 }
 
 func (h *PostHandler) PostHandler(w http.ResponseWriter, r *http.Request) {

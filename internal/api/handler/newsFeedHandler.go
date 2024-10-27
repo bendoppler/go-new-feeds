@@ -1,12 +1,13 @@
 package handler
 
 import (
+	"context"
 	"encoding/json"
 	"net/http"
+	"news-feed/internal/api/generated/news-feed/newsfeedpb"
 
 	_ "news-feed/docs"
 	_ "news-feed/internal/entity"
-	"news-feed/internal/service"
 )
 
 type NewsFeedHandlerInterface interface {
@@ -14,7 +15,7 @@ type NewsFeedHandlerInterface interface {
 }
 
 type NewsfeedHandler struct {
-	newsFeedService service.NewsFeedServiceInterface
+	newsFeedService newsfeedpb.NewsfeedServiceClient
 }
 
 // GetNewsfeed handles GET requests for retrieving newsfeed posts.
@@ -27,7 +28,7 @@ type NewsfeedHandler struct {
 // @Router /v1/newsfeed [get]
 func (h *NewsfeedHandler) GetNewsfeed() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		posts, err := h.newsFeedService.GetNewsfeedPosts()
+		posts, err := h.newsFeedService.GetNewsfeed(context.Background(), &newsfeedpb.GetNewsfeedRequest{})
 		if err != nil {
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
