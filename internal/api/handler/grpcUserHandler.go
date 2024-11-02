@@ -37,7 +37,7 @@ func (h *GRPCUserHandler) Login(ctx context.Context, req *userpb.LoginRequest) (
 	if err != nil {
 		logger.LogError(fmt.Sprintf("Login failed: %v", err))
 		return &userpb.LoginResponse{
-			Error: "Login failed",
+			Error: fmt.Sprintf("Login failed: %v", err),
 		}, nil
 	}
 

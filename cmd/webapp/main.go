@@ -41,7 +41,8 @@ func main() {
 	logger.InitLogger()
 
 	conn, err := grpc.Dial(
-		"localhost:"+cfg.PostUserFriendsPort, grpc.WithInsecure(),
+		"127.0.0.1:"+cfg.PostUserFriendsPort,
+		grpc.WithInsecure(),
 	) // Use secure connection in production
 	if err != nil {
 		logger.LogError(fmt.Sprintf("Failed to connect to post user service server: %v", err))
@@ -61,7 +62,7 @@ func main() {
 		}
 	}(conn)
 
-	newsfeedConn, err := grpc.Dial("localhost:"+cfg.NewsfeedAppPort, grpc.WithInsecure())
+	newsfeedConn, err := grpc.Dial("127.0.0.1:"+cfg.NewsfeedAppPort, grpc.WithInsecure())
 	newsfeedService := newsfeedpb.NewNewsfeedServiceClient(newsfeedConn)
 	newsfeedHandler := handlerFactory.CreateNewsFeedHandler(newsfeedService)
 	if err != nil {

@@ -9,6 +9,7 @@ import (
 	"news-feed/internal/api/generated/news-feed/userpb"
 	"news-feed/internal/api/model"
 	"news-feed/pkg/logger"
+	"news-feed/pkg/metrics"
 	"news-feed/pkg/middleware"
 	"time"
 )
@@ -50,10 +51,12 @@ func (h *UserHandler) UserHandler(w http.ResponseWriter, r *http.Request) {
 // @Router /v1/users/login [post]
 func (h *UserHandler) Login() http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+		startTime := time.Now()
 		var credentials model.LoginRequest
 		if err := json.NewDecoder(r.Body).Decode(&credentials); err != nil {
 			logger.LogError(fmt.Sprintf("Invalid request body: %v", err))
 			http.Error(w, "Invalid request payload", http.StatusBadRequest)
+			metrics.RecordLoginLatency("failure", time.Since(startTime).Seconds()*1000)
 			return
 		}
 
@@ -65,9 +68,10 @@ func (h *UserHandler) Login() http.HandlerFunc {
 
 		// Call gRPC Login method
 		resp, err := h.grpcUserHandler.Login(context.Background(), req)
-		if err != nil {
-			logger.LogError(fmt.Sprintf("Login failed: %v", err))
+		if resp.Error != "" {
+			logger.LogError(fmt.Sprintf("Login failed: %v", resp.Error))
 			http.Error(w, "Unauthorized", http.StatusUnauthorized)
+			metrics.RecordLoginLatency("failure", time.Since(startTime).Seconds()*1000)
 			return
 		}
 
@@ -77,8 +81,11 @@ func (h *UserHandler) Login() http.HandlerFunc {
 		if err != nil {
 			logger.LogError(fmt.Sprintf("Encode failed: %v", err))
 			http.Error(w, err.Error(), http.StatusInternalServerError)
+			metrics.RecordLoginLatency("failure", time.Since(startTime).Seconds()*1000)
 			return
 		}
+
+		metrics.RecordLoginLatency("success", time.Since(startTime).Seconds()*1000)
 	}
 }
 
